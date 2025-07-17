@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-2xl mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-6 text-center text-indigo-600">Analytics App</h1>
+        
+        <div class="bg-white shadow-lg rounded-lg p-6 space-y-6">
+            <!-- Tab Buttons -->
+            <div class="flex space-x-4">
+                <button id="csvTabBtn" class="bg-indigo-100 text-indigo-700 rounded px-4 py-2 font-semibold tab-btn active">
+                    CSV Analysis
+                </button>
+                <button id="tickerTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
+                    Ticker Analysis
+                </button>
+                <button id="macroTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
+                    Macro Analysis
+                </button>
+            </div>
+            
+            <!-- CSV Analysis Tab -->
+            <div id="csvTab" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload CSV File</label>
+                    <input type="file" id="csvFile" accept=".csv" class="w-full p-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)</label>
+                        <input type="number" id="interestRate" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">FX Rate</label>
+                        <input type="number" id="fxRate" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Inflation (%)</label>
+                        <input type="number" id="inflation" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Wage Growth (%)</label>
+                        <input type="number" id="wageGrowth" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="useAuto" class="rounded">
+                    <label for="useAuto" class="text-sm text-gray-700">Use Auto Values</label>
+                </div>
+                
+                <button id="runAnalysis" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
+                    Run Analysis
+                </button>
+            </div>
+            
+            <!-- Ticker Analysis Tab -->
+            <div id="tickerTab" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Stock Symbol</label>
+                    <input type="text" id="tickerSymbol" placeholder="e.g., AAPL, MSFT" class="w-full p-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="useAutoTicker" class="rounded">
+                    <label for="useAutoTicker" class="text-sm text-gray-700">Use Auto Values</label>
+                </div>
+                
+                <button id="fetchTicker" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
+                    Fetch & Run
+                </button>
+            </div>
+            
+            <!-- Macro Analysis Tab -->
+            <div id="macroTab" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Macroeconomic Indicator</label>
+                    <select id="series_id" class="w-full p-2 border border-gray-300 rounded-md">
+                        <option value="EFFR">EFFR - Effective Federal Funds Rate</option>
+                        <option value="UNRATE">UNRATE - Unemployment Rate</option>
+                        <option value="CPIAUCSL">CPIAUCSL - Consumer Price Index</option>
+                        <option value="GDPC1">GDPC1 - Real GDP</option>
+                        <option value="PAYEMS">PAYEMS - Total Nonfarm Payrolls</option>
+                        <option value="DGS10">DGS10 - 10-Year Treasury Rate</option>
+                        <option value="DEXUSEU">DEXUSEU - US/Euro Exchange Rate</option>
+                        <option value="DCOILWTICO">DCOILWTICO - Crude Oil Price</option>
+                    </select>
+                </div>
+                
+                <button id="fetchMacro" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
+                    Fetch Data
+                </button>
+                
+                <!-- Chart Placeholder -->
+                <div id="macroChart" class="bg-gray-100 p-4 rounded-md text-center text-gray-500">
+                    <p>Chart will appear here after data is fetched</p>
+                </div>
+                
+                <!-- Chart Container -->
+                <div id="chartContainer" class="hidden">
+                    <div class="bg-white p-4 rounded-md border">
+                        <canvas id="macroChartCanvas" style="width: 100%; height: 400px;"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Raw JSON Output -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Raw Response</label>
+                    <pre id="macroOut" class="bg-gray-100 p-4 rounded-md text-sm overflow-auto max-h-64"></pre>
+                </div>
+            </div>
+            
+            <!-- Results Output -->
+            <div class="mt-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Results</label>
+                <pre id="results" class="bg-gray-100 p-4 rounded-md text-sm overflow-auto max-h-64"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching functionality
+        const csvTabBtn = document.getElementById('csvTabBtn');
+        const tickerTabBtn = document.getElementById('tickerTabBtn');
+        const macroTabBtn = document.getElementById('macroTabBtn');
+        const csvTab = document.getElementById('csvTab');
+        const tickerTab = document.getElementById('tickerTab');
+        const macroTab = document.getElementById('macroTab');
+        const results = document.getElementById('results');
+
+        function switchTab(activeTab, activeBtn) {
+            // Hide all tabs
+            [csvTab, tickerTab, macroTab].forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Show active tab
+            activeTab.classList.remove('hidden');
+            
+            // Reset all buttons
+            [csvTabBtn, tickerTabBtn, macroTabBtn].forEach(btn => {
+                btn.classList.remove('bg-indigo-100', 'text-indigo-700');
+                btn.classList.add('bg-gray-100', 'text-gray-600');
+            });
+            
+            // Style active button
+            activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
+            activeBtn.classList.add('bg-indigo-100', 'text-indigo-700');
+        }
+
+        csvTabBtn.addEventListener('click', () => {
+            switchTab(csvTab, csvTabBtn);
+        });
+
+        tickerTabBtn.addEventListener('click', () => {
+            switchTab(tickerTab, tickerTabBtn);
+        });
+
+        macroTabBtn.addEventListener('click', () => {
+            switchTab(macroTab, macroTabBtn);
+        });
+
+        // CSV Analysis functionality
+        document.getElementById('runAnalysis').addEventListener('click', async () => {
+            const fileInput = document.getElementById('csvFile');
+            const useAuto = document.getElementById('useAuto').checked;
+            
+            if (!fileInput.files[0]) {
+                results.textContent = 'Please select a CSV file';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            if (!useAuto) {
+                formData.append('interest_rate', document.getElementById('interestRate').value);
+                formData.append('fx_rate', document.getElementById('fxRate').value);
+                formData.append('inflation', document.getElementById('inflation').value);
+                formData.append('wage_growth', document.getElementById('wageGrowth').value);
+            }
+
+            try {
+                const response = await axios.post(`/analyze/?use_auto=${useAuto}`, formData);
+                results.textContent = JSON.stringify(response.data, null, 2);
+            } catch (error) {
+                results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
+            }
+        });
+
+        // Ticker Analysis functionality
+        document.getElementById('fetchTicker').addEventListener('click', async () => {
+            const symbol = document.getElementById('tickerSymbol').value.trim();
+            
+            if (!symbol) {
+                results.textContent = 'Please enter a stock symbol';
+                return;
+            }
+
+            try {
+                const response = await axios.get(`/company/${symbol}`);
+                results.textContent = JSON.stringify(response.data, null, 2);
+            } catch (error) {
+                results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
+            }
+        });
+
+        // Macro Analysis functionality
+        let macroChart = null; // Global chart instance
+
+        document.getElementById('fetchMacro').addEventListener('click', async () => {
+            const seriesId = document.getElementById('series_id').value;
+            const macroOut = document.getElementById('macroOut');
+            const macroChartDiv = document.getElementById('macroChart');
+            const chartContainer = document.getElementById('chartContainer');
+            
+            if (!seriesId) {
+                macroOut.textContent = 'Please select a macroeconomic indicator';
+                return;
+            }
+
+            try {
+                // First, ingest the data
+                const ingestResponse = await axios.post(`/ingest/macro/${seriesId}`);
+                macroOut.textContent = JSON.stringify(ingestResponse.data, null, 2);
+                
+                // Update chart placeholder with success message
+                if (ingestResponse.data.inserted > 0) {
+                    macroChartDiv.innerHTML = `
+                        <div class="text-green-600 mb-4">
+                            <p class="font-semibold">✓ Data fetched successfully!</p>
+                            <p class="text-sm">${ingestResponse.data.inserted} records inserted</p>
+                        </div>
+                    `;
+                } else {
+                    macroChartDiv.innerHTML = `
+                        <div class="text-blue-600 mb-4">
+                            <p class="font-semibold">ℹ Using existing data</p>
+                            <p class="text-sm">${ingestResponse.data.existing_records} existing records found</p>
+                        </div>
+                    `;
+                }
+                
+                // Show chart container
+                chartContainer.classList.remove('hidden');
+                
+                // Now fetch the data for charting
+                const dataResponse = await axios.get(`/macro/${seriesId}`);
+                
+                if (dataResponse.data.records && dataResponse.data.records.length > 0) {
+                    // Prepare data for chart
+                    const records = dataResponse.data.records.reverse(); // Reverse to show chronological order
+                    const labels = records.map(record => {
+                        const date = new Date(record.date);
+                        // Format date more compactly
+                        return date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            year: '2-digit' 
+                        });
+                    });
+                    const values = records.map(record => record.value);
+                    
+                    // Create chart
+                    const ctx = document.getElementById('macroChartCanvas').getContext('2d');
+                    
+                    // Destroy existing chart if it exists
+                    if (macroChart) {
+                        macroChart.destroy();
+                    }
+                    
+                    macroChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: `${seriesId} - ${getSeriesName(seriesId)}`,
+                                data: values,
+                                borderColor: 'rgb(99, 102, 241)',
+                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                tension: 0.1,
+                                pointRadius: 1,
+                                pointHoverRadius: 4,
+                                borderWidth: 2,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false,
+                                mode: 'index'
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${seriesId} - ${getSeriesName(seriesId)}`,
+                                    font: {
+                                        size: 16,
+                                        weight: 'bold'
+                                    }
+                                },
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    titleColor: 'white',
+                                    bodyColor: 'white',
+                                    borderColor: 'rgb(99, 102, 241)',
+                                    borderWidth: 1
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    display: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Date'
+                                    },
+                                    ticks: {
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    }
+                                },
+                                y: {
+                                    display: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Value'
+                                    },
+                                    beginAtZero: false,
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.1)'
+                                    }
+                                }
+                            },
+                            elements: {
+                                point: {
+                                    hoverBackgroundColor: 'rgb(99, 102, 241)',
+                                    hoverBorderColor: 'white',
+                                    hoverBorderWidth: 2
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    chartContainer.classList.add('hidden');
+                    macroChartDiv.innerHTML = `
+                        <div class="text-yellow-600">
+                            <p class="font-semibold">⚠ No data available for charting</p>
+                            <p class="text-sm">Data was ingested but no records found for display</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                macroOut.textContent = `Error: ${error.response?.data?.detail || error.message}`;
+                chartContainer.classList.add('hidden');
+                macroChartDiv.innerHTML = `
+                    <div class="text-red-600">
+                        <p class="font-semibold">✗ Error fetching data</p>
+                        <p class="text-sm">Check the raw response below for details</p>
+                    </div>
+                `;
+            }
+        });
+
+        // Helper function to get series names
+        function getSeriesName(seriesId) {
+            const seriesNames = {
+                'EFFR': 'Effective Federal Funds Rate',
+                'UNRATE': 'Unemployment Rate',
+                'CPIAUCSL': 'Consumer Price Index',
+                'GDPC1': 'Real GDP',
+                'PAYEMS': 'Total Nonfarm Payrolls',
+                'DGS10': '10-Year Treasury Rate',
+                'DEXUSEU': 'US/Euro Exchange Rate',
+                'DCOILWTICO': 'Crude Oil Price'
+            };
+            return seriesNames[seriesId] || seriesId;
+        }
+    </script>
+</body>
+</html> 

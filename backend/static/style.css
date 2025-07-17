@@ -1,0 +1,66 @@
+/* Custom styles for Analytics App */
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200;
+}
+
+.btn-primary:disabled {
+  @apply bg-blue-400 cursor-not-allowed;
+}
+
+.tab-btn {
+  @apply transition-all duration-200;
+}
+
+.tab-btn:hover {
+  @apply text-blue-500;
+}
+
+.tab-content {
+  @apply transition-opacity duration-200;
+}
+
+/* Chart container styles */
+#chartContainer {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+#chartContainer .bg-white {
+  @apply shadow-sm border-gray-200;
+}
+
+#macroChartCanvas {
+  @apply rounded-md;
+}
+
+/* Mobile responsiveness improvements */
+@media (max-width: 640px) {
+  .max-w-2xl {
+    @apply mx-4;
+  }
+  
+  .grid-cols-2 {
+    @apply grid-cols-1;
+  }
+  
+  #macroChartCanvas {
+    height: 300px !important;
+  }
+}
+
+/* Custom scrollbar for output area */
+#out::-webkit-scrollbar {
+  width: 8px;
+}
+
+#out::-webkit-scrollbar-track {
+  @apply bg-gray-200 rounded;
+}
+
+#out::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded;
+}
+
+#out::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+} 
