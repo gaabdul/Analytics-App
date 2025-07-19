@@ -3,657 +3,669 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics App</title>
+    <title>Financial Analytics Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="max-w-2xl mx-auto p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-indigo-600">Analytics App</h1>
-            
-            <!-- Currency Toggle Button -->
-            <div class="flex items-center space-x-2">
-                <span class="text-sm text-gray-600">Currency:</span>
-                <button id="currencyToggle" class="currency-toggle-btn bg-indigo-100 text-indigo-700 px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 hover:bg-indigo-200">
-                    <span id="currencySymbol">$</span>
-                    <span id="currencyCode">USD</span>
-                </button>
-                <span class="text-xs text-gray-500">(FX rate cached for 10 min)</span>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-chart-line text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                        Financial Analytics
+                    </h1>
+                </div>
+                
+                <!-- Currency Toggle -->
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-gray-600">Currency:</span>
+                    <button id="currencyToggle" class="flex items-center space-x-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200 shadow-sm">
+                        <span id="currencySymbol" class="text-primary-600">$</span>
+                        <span id="currencyCode">USD</span>
+                        <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                    </button>
+                </div>
             </div>
         </div>
-        
-        <div class="bg-white shadow-lg rounded-lg p-6 space-y-6">
-            <!-- Tab Buttons -->
-            <div class="flex space-x-4">
-                <button id="csvTabBtn" class="bg-indigo-100 text-indigo-700 rounded px-4 py-2 font-semibold tab-btn active">
-                    CSV Analysis
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-2 mb-8">
+            <div class="flex space-x-1" role="tablist">
+                <button id="csvTabBtn" class="tab-btn flex-1 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 bg-primary-500 text-white shadow-sm">
+                    <i class="fas fa-file-csv mr-2"></i>CSV Analysis
                 </button>
-                <button id="tickerTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
-                    Ticker Analysis
+                <button id="tickerTabBtn" class="tab-btn flex-1 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                    <i class="fas fa-chart-bar mr-2"></i>Company Data
                 </button>
-                <button id="scenarioTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
-                    Scenario Analysis
+                <button id="scenarioTabBtn" class="tab-btn flex-1 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                    <i class="fas fa-calculator mr-2"></i>Scenarios
                 </button>
-                <button id="macroTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
-                    Macro Analysis
+                <button id="macroTabBtn" class="tab-btn flex-1 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                    <i class="fas fa-globe mr-2"></i>Macro Data
                 </button>
             </div>
-            
+        </div>
+
+        <!-- Tab Content -->
+        <div class="space-y-8">
             <!-- CSV Analysis Tab -->
-            <div id="csvTab" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload CSV File</label>
-                    <input type="file" id="csvFile" accept=".csv" class="w-full p-2 border border-gray-300 rounded-md">
+            <div id="csvTab" class="tab-content">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">CSV Financial Analysis</h2>
+                        <p class="text-gray-600">Upload your financial data and analyze with economic levers</p>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <!-- File Upload -->
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-primary-400 transition-colors">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <input type="file" id="csvFile" accept=".csv" class="hidden">
+                            <label for="csvFile" class="cursor-pointer">
+                                <div class="text-lg font-medium text-gray-900 mb-2">Drop your CSV file here</div>
+                                <div class="text-sm text-gray-500">or click to browse</div>
+                            </label>
+                        </div>
+                        
+                        <!-- Economic Levers -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700">Interest Rate (%)</label>
+                                <input type="number" id="interestRate" step="0.01" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700">FX Rate</label>
+                                <input type="number" id="fxRate" step="0.01" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700">Inflation (%)</label>
+                                <input type="number" id="inflation" step="0.01" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700">Wage Growth (%)</label>
+                                <input type="number" id="wageGrowth" step="0.01" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                        </div>
+                        
+                        <!-- Auto Values Toggle -->
+                        <div class="flex items-center space-x-3">
+                            <input type="checkbox" id="useAuto" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                            <label for="useAuto" class="text-sm font-medium text-gray-700">Use real-time economic data</label>
+                        </div>
+                        
+                        <!-- Run Button -->
+                        <button id="runAnalysis" class="w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            <i class="fas fa-play mr-2"></i>Run Analysis
+                        </button>
+                    </div>
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)</label>
-                        <input type="number" id="interestRate" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">FX Rate</label>
-                        <input type="number" id="fxRate" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Inflation (%)</label>
-                        <input type="number" id="inflation" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Wage Growth (%)</label>
-                        <input type="number" id="wageGrowth" step="0.01" class="w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                </div>
-                
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" id="useAuto" class="rounded">
-                    <label for="useAuto" class="text-sm text-gray-700">Use Auto Values</label>
-                </div>
-                
-                <button id="runAnalysis" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
-                    Run Analysis
-                </button>
             </div>
-            
-            <!-- Ticker Analysis Tab -->
-            <div id="tickerTab" class="space-y-4 hidden">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Stock Symbol</label>
-                    <input type="text" id="tickerSymbol" placeholder="e.g., AAPL, MSFT" class="w-full p-2 border border-gray-300 rounded-md">
+
+            <!-- Company Data Tab -->
+            <div id="tickerTab" class="tab-content hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Company Financial Data</h2>
+                        <p class="text-gray-600">Get real-time financial data for any publicly traded company</p>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="max-w-md">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Symbol</label>
+                            <div class="relative">
+                                <input type="text" id="tickerSymbol" placeholder="e.g., AAPL, MSFT, GOOGL" class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            </div>
+                        </div>
+                        
+                        <button id="fetchTicker" class="bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            <i class="fas fa-download mr-2"></i>Fetch Data
+                        </button>
+                    </div>
                 </div>
-                
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" id="useAutoTicker" class="rounded">
-                    <label for="useAutoTicker" class="text-sm text-gray-700">Use Auto Values</label>
-                </div>
-                
-                <button id="fetchTicker" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
-                    Fetch & Run
-                </button>
             </div>
-            
-                         <!-- Scenario Analysis Tab -->
-             <div id="scenarioTab" class="space-y-4 hidden">
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <!-- Interest Rate Shock Analysis -->
-                     <div class="bg-gray-50 p-4 rounded-lg">
-                         <h3 class="text-lg font-semibold text-gray-800 mb-3">Interest Rate Shock Analysis</h3>
-                         <div class="space-y-3">
-                             <div>
-                                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Symbol</label>
-                                 <input type="text" id="shockSymbol" placeholder="e.g., AAPL, MSFT" class="w-full p-2 border border-gray-300 rounded-md">
-                             </div>
-                             <div>
-                                 <label class="block text-sm font-medium text-gray-700 mb-1">Rate Delta (%)</label>
-                                 <input type="number" id="rateDelta" step="0.01" placeholder="e.g., 1.0 for +100bps" class="w-full p-2 border border-gray-300 rounded-md">
-                             </div>
-                             <button id="runInterestShock" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
-                                 Analyze Interest Shock
-                             </button>
-                         </div>
-                     </div>
-                     
-                     <!-- Scenario Matrix Analysis -->
-                     <div class="bg-gray-50 p-4 rounded-lg">
-                         <h3 class="text-lg font-semibold text-gray-800 mb-3">Scenario Matrix Analysis</h3>
-                         <div class="space-y-3">
-                             <div>
-                                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Symbol</label>
-                                 <input type="text" id="matrixSymbol" placeholder="e.g., AAPL, MSFT" class="w-full p-2 border border-gray-300 rounded-md">
-                             </div>
-                             <button id="runScenarioMatrix" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors">
-                                 Generate Scenario Matrix
-                             </button>
-                         </div>
-                     </div>
-                 </div>
-                 
-                 <!-- Results Display -->
-                 <div id="scenarioResults" class="hidden">
-                     <h3 class="text-lg font-semibold text-gray-800 mb-3">Analysis Results</h3>
-                     <div id="scenarioResultsContent" class="bg-gray-100 p-4 rounded-md"></div>
-                 </div>
-             </div>
-            
+
+            <!-- Scenario Analysis Tab -->
+            <div id="scenarioTab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <!-- Interest Rate Shock -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Interest Rate Shock Analysis</h2>
+                            <p class="text-gray-600">Analyze the impact of interest rate changes on profit margins</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Stock Symbol</label>
+                                <input type="text" id="shockSymbol" placeholder="e.g., AAPL, MSFT" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Rate Change (%)</label>
+                                <input type="number" id="rateDelta" step="0.01" placeholder="e.g., 1.0 for +100bps" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                        </div>
+                        
+                        <button id="runInterestShock" class="mt-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            <i class="fas fa-bolt mr-2"></i>Analyze Shock Impact
+                        </button>
+                    </div>
+
+                    <!-- Scenario Matrix -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                        <div class="mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Scenario Matrix Analysis</h2>
+                            <p class="text-gray-600">Compare multiple scenarios: base, inflation, interest rates, and combined effects</p>
+                        </div>
+                        
+                        <div class="max-w-md">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Symbol</label>
+                            <input type="text" id="matrixSymbol" placeholder="e.g., AAPL, MSFT" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        
+                        <button id="runScenarioMatrix" class="mt-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            <i class="fas fa-table mr-2"></i>Generate Matrix
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Macro Analysis Tab -->
-            <div id="macroTab" class="space-y-4 hidden">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Macroeconomic Indicator</label>
-                    <select id="series_id" class="w-full p-2 border border-gray-300 rounded-md">
-                        <option value="EFFR">EFFR - Effective Federal Funds Rate</option>
-                        <option value="UNRATE">UNRATE - Unemployment Rate</option>
-                        <option value="CPIAUCSL">CPIAUCSL - Consumer Price Index</option>
-                        <option value="GDPC1">GDPC1 - Real GDP</option>
-                        <option value="PAYEMS">PAYEMS - Total Nonfarm Payrolls</option>
-                        <option value="DGS10">DGS10 - 10-Year Treasury Rate</option>
-                        <option value="DEXUSEU">DEXUSEU - US/Euro Exchange Rate</option>
-                        <option value="DCOILWTICO">DCOILWTICO - Crude Oil Price</option>
-                    </select>
-                </div>
-                
-                <button id="fetchMacro" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">
-                    Fetch Data
-                </button>
-                
-                <!-- Chart Placeholder -->
-                <div id="macroChart" class="bg-gray-100 p-4 rounded-md text-center text-gray-500">
-                    <p>Chart will appear here after data is fetched</p>
-                </div>
-                
-                <!-- Chart Container -->
-                <div id="chartContainer" class="hidden">
-                    <div class="bg-white p-4 rounded-md border">
-                        <canvas id="macroChartCanvas" style="width: 100%; height: 400px;"></canvas>
+            <div id="macroTab" class="tab-content hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Macroeconomic Data</h2>
+                        <p class="text-gray-600">Explore real-time macroeconomic indicators and trends</p>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="max-w-md">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Economic Indicator</label>
+                            <select id="series_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                <option value="EFFR">Federal Funds Rate</option>
+                                <option value="UNRATE">Unemployment Rate</option>
+                                <option value="CPIAUCSL">Consumer Price Index</option>
+                                <option value="GDPC1">Real GDP</option>
+                                <option value="PAYEMS">Nonfarm Payrolls</option>
+                                <option value="DGS10">10-Year Treasury</option>
+                                <option value="DEXUSEU">US/Euro Exchange</option>
+                                <option value="DCOILWTICO">Crude Oil Price</option>
+                            </select>
+                        </div>
+                        
+                        <button id="fetchMacro" class="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            <i class="fas fa-chart-line mr-2"></i>Fetch Data
+                        </button>
+                        
+                        <!-- Chart Container -->
+                        <div id="chartContainer" class="hidden">
+                            <div class="bg-gray-50 rounded-xl p-6">
+                                <canvas id="macroChartCanvas" style="width: 100%; height: 400px;"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Raw JSON Output -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Raw Response</label>
-                    <pre id="macroOut" class="bg-gray-100 p-4 rounded-md text-sm overflow-auto max-h-64"></pre>
-                </div>
             </div>
-            
-            <!-- Results Output -->
-            <div class="mt-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Results</label>
-                <pre id="results" class="bg-gray-100 p-4 rounded-md text-sm overflow-auto max-h-64"></pre>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="mt-8 hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">Analysis Results</h3>
+                    <button id="clearResults" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="results" class="bg-gray-50 rounded-xl p-6 text-sm font-mono overflow-auto max-h-96"></div>
+            </div>
+        </div>
+
+        <!-- Scenario Results -->
+        <div id="scenarioResults" class="mt-8 hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">Scenario Analysis Results</h3>
+                    <button id="clearScenarioResults" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="scenarioResultsContent"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Tab switching functionality
-        const csvTabBtn = document.getElementById('csvTabBtn');
-        const tickerTabBtn = document.getElementById('tickerTabBtn');
-        const scenarioTabBtn = document.getElementById('scenarioTabBtn');
-        const macroTabBtn = document.getElementById('macroTabBtn');
-        const csvTab = document.getElementById('csvTab');
-        const tickerTab = document.getElementById('tickerTab');
-        const scenarioTab = document.getElementById('scenarioTab');
-        const macroTab = document.getElementById('macroTab');
-        const results = document.getElementById('results');
+        // Modern JavaScript with improved UX
+        let currentCurrency = 'USD';
+        let fxRate = 1.0;
+        let fxRateCache = null;
+        let fxRateCacheTime = null;
+        let macroChart = null;
+        const CACHE_DURATION = 10 * 60 * 1000;
 
-        function switchTab(activeTab, activeBtn) {
-            // Hide all tabs
-            [csvTab, tickerTab, scenarioTab, macroTab].forEach(tab => {
-                tab.classList.add('hidden');
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchAndCacheFxRate();
+            setupCurrencyToggle();
+            setupTabSwitching();
+            setupEventListeners();
+            setupFileUpload();
+        });
+
+        function setupTabSwitching() {
+            const tabs = ['csv', 'ticker', 'scenario', 'macro'];
+            const buttons = tabs.map(tab => document.getElementById(`${tab}TabBtn`));
+            const contents = tabs.map(tab => document.getElementById(`${tab}Tab`));
+
+            buttons.forEach((btn, index) => {
+                btn.addEventListener('click', () => {
+                    // Update buttons
+                    buttons.forEach(b => {
+                        b.className = b.className.replace('bg-primary-500 text-white', 'text-gray-600 hover:text-gray-900 hover:bg-gray-100');
+                    });
+                    btn.className = btn.className.replace('text-gray-600 hover:text-gray-900 hover:bg-gray-100', 'bg-primary-500 text-white shadow-sm');
+
+                    // Update content
+                    contents.forEach(content => content.classList.add('hidden'));
+                    contents[index].classList.remove('hidden');
+                });
             });
-            
-            // Show active tab
-            activeTab.classList.remove('hidden');
-            
-            // Reset all buttons
-            [csvTabBtn, tickerTabBtn, scenarioTabBtn, macroTabBtn].forEach(btn => {
-                btn.classList.remove('bg-indigo-100', 'text-indigo-700');
-                btn.classList.add('bg-gray-100', 'text-gray-600');
-            });
-            
-            // Style active button
-            activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
-            activeBtn.classList.add('bg-indigo-100', 'text-indigo-700');
         }
 
-        csvTabBtn.addEventListener('click', () => {
-            switchTab(csvTab, csvTabBtn);
-        });
+        function setupEventListeners() {
+            // CSV Analysis
+            document.getElementById('runAnalysis').addEventListener('click', runCSVAnalysis);
+            
+            // Company Data
+            document.getElementById('fetchTicker').addEventListener('click', fetchCompanyData);
+            
+            // Scenario Analysis
+            document.getElementById('runInterestShock').addEventListener('click', runInterestShock);
+            document.getElementById('runScenarioMatrix').addEventListener('click', runScenarioMatrix);
+            
+            // Macro Analysis
+            document.getElementById('fetchMacro').addEventListener('click', fetchMacroData);
+            
+            // Clear Results
+            document.getElementById('clearResults').addEventListener('click', clearResults);
+            document.getElementById('clearScenarioResults').addEventListener('click', clearScenarioResults);
+        }
 
-        tickerTabBtn.addEventListener('click', () => {
-            switchTab(tickerTab, tickerTabBtn);
-        });
+        function setupFileUpload() {
+            const fileInput = document.getElementById('csvFile');
+            const dropZone = fileInput.parentElement;
 
-        scenarioTabBtn.addEventListener('click', () => {
-            switchTab(scenarioTab, scenarioTabBtn);
-        });
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-primary-400', 'bg-primary-50');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-primary-400', 'bg-primary-50');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-primary-400', 'bg-primary-50');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    showNotification('File uploaded successfully!', 'success');
+                }
+            });
+        }
 
-        macroTabBtn.addEventListener('click', () => {
-            switchTab(macroTab, macroTabBtn);
-        });
-
-        // CSV Analysis functionality with currency conversion
-        document.getElementById('runAnalysis').addEventListener('click', async () => {
+        async function runCSVAnalysis() {
             const fileInput = document.getElementById('csvFile');
             const useAuto = document.getElementById('useAuto').checked;
             
             if (!fileInput.files[0]) {
-                results.textContent = 'Please select a CSV file';
+                showNotification('Please select a CSV file', 'error');
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            
-            if (!useAuto) {
-                formData.append('interest_rate', document.getElementById('interestRate').value);
-                formData.append('fx_rate', document.getElementById('fxRate').value);
-                formData.append('inflation', document.getElementById('inflation').value);
-                formData.append('wage_growth', document.getElementById('wageGrowth').value);
-            }
+            showLoading('Running analysis...');
 
             try {
-                const response = await axios.post(`/analyze/?use_auto=${useAuto}`, formData);
-                const data = response.data;
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
                 
-                // Format the response with currency conversion
-                let formattedResults = JSON.stringify(data, null, 2);
-                
-                // Convert monetary values in the JSON string
-                if (data.totals) {
-                    const totals = data.totals;
-                    const profitValue = currentCurrency === 'CAD' ? totals.profit * fxRate : totals.profit;
-                    const adjProfitValue = currentCurrency === 'CAD' ? totals.adj_profit * fxRate : totals.adj_profit;
-                    const adjProfitFxValue = currentCurrency === 'CAD' ? totals.adj_profit_fx * fxRate : totals.adj_profit_fx;
-                    
-                    formattedResults = formattedResults.replace(
-                        `"profit": ${totals.profit}`,
-                        `"profit": ${formatCurrency(profitValue, currentCurrency)}`
-                    );
-                    formattedResults = formattedResults.replace(
-                        `"adj_profit": ${totals.adj_profit}`,
-                        `"adj_profit": ${formatCurrency(adjProfitValue, currentCurrency)}`
-                    );
-                    formattedResults = formattedResults.replace(
-                        `"adj_profit_fx": ${totals.adj_profit_fx}`,
-                        `"adj_profit_fx": ${formatCurrency(adjProfitFxValue, currentCurrency)}`
-                    );
+                if (!useAuto) {
+                    formData.append('interest_rate', document.getElementById('interestRate').value);
+                    formData.append('fx_rate', document.getElementById('fxRate').value);
+                    formData.append('inflation', document.getElementById('inflation').value);
+                    formData.append('wage_growth', document.getElementById('wageGrowth').value);
                 }
-                
-                results.textContent = formattedResults;
-                
-            } catch (error) {
-                results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
-            }
-        });
 
-        // Ticker Analysis functionality with currency conversion
-        document.getElementById('fetchTicker').addEventListener('click', async () => {
+                const response = await axios.post(`/analyze/?use_auto=${useAuto}`, formData);
+                showResults(JSON.stringify(response.data, null, 2));
+                showNotification('Analysis completed successfully!', 'success');
+            } catch (error) {
+                showNotification(`Error: ${error.response?.data?.detail || error.message}`, 'error');
+            }
+        }
+
+        async function fetchCompanyData() {
             const symbol = document.getElementById('tickerSymbol').value.trim();
             
             if (!symbol) {
-                results.textContent = 'Please enter a stock symbol';
+                showNotification('Please enter a stock symbol', 'error');
                 return;
             }
+
+            showLoading('Fetching company data...');
 
             try {
                 const response = await axios.get(`/company/${symbol}`);
-                const data = response.data;
-                
-                // Format the response with currency conversion
-                let formattedResults = JSON.stringify(data, null, 2);
-                
-                // Convert monetary values in the JSON string
-                if (data.revenue) {
-                    const revenueValue = currentCurrency === 'CAD' ? data.revenue * fxRate : data.revenue;
-                    formattedResults = formattedResults.replace(
-                        `"revenue": ${data.revenue}`,
-                        `"revenue": ${formatCurrency(revenueValue, currentCurrency)}`
-                    );
-                }
-                if (data.cost) {
-                    const costValue = currentCurrency === 'CAD' ? data.cost * fxRate : data.cost;
-                    formattedResults = formattedResults.replace(
-                        `"cost": ${data.cost}`,
-                        `"cost": ${formatCurrency(costValue, currentCurrency)}`
-                    );
-                }
-                if (data.ebitda) {
-                    const ebitdaValue = currentCurrency === 'CAD' ? data.ebitda * fxRate : data.ebitda;
-                    formattedResults = formattedResults.replace(
-                        `"ebitda": ${data.ebitda}`,
-                        `"ebitda": ${formatCurrency(ebitdaValue, currentCurrency)}`
-                    );
-                }
-                
-                results.textContent = formattedResults;
-                
+                showResults(JSON.stringify(response.data, null, 2));
+                showNotification('Company data fetched successfully!', 'success');
             } catch (error) {
-                results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
+                showNotification(`Error: ${error.response?.data?.detail || error.message}`, 'error');
             }
-        });
+        }
 
-                 // Scenario Analysis functionality
-         document.getElementById('runInterestShock').addEventListener('click', async () => {
-             const symbol = document.getElementById('shockSymbol').value.trim();
-             const rateDelta = parseFloat(document.getElementById('rateDelta').value);
+        async function runInterestShock() {
+            const symbol = document.getElementById('shockSymbol').value.trim();
+            const rateDelta = parseFloat(document.getElementById('rateDelta').value);
 
-             if (!symbol) {
-                 showScenarioResults('Please enter a stock symbol', 'error');
-                 return;
-             }
-
-             if (isNaN(rateDelta)) {
-                 showScenarioResults('Please enter a valid rate delta', 'error');
-                 return;
-             }
-
-             try {
-                 const response = await axios.post('/scenario/interest-shock', {
-                     symbol: symbol,
-                     rate_delta: rateDelta / 100 // Convert percentage to decimal
-                 });
-                 
-                 const data = response.data;
-                 
-                 if (data.error) {
-                     showScenarioResults(`Error: ${data.error}`, 'error');
-                     return;
-                 }
-                 
-                 // Format results as a nice table
-                 const resultsHtml = `
-                     <div class="space-y-4">
-                         <div class="bg-white p-4 rounded-lg border">
-                             <h4 class="font-semibold text-lg mb-3">Interest Rate Shock Analysis - ${data.symbol}</h4>
-                             <div class="grid grid-cols-3 gap-4 text-center">
-                                 <div class="bg-green-50 p-3 rounded">
-                                     <div class="text-sm text-gray-600">Base Margin</div>
-                                     <div class="text-xl font-bold text-green-700">${(data.base_margin * 100).toFixed(1)}%</div>
-                                 </div>
-                                 <div class="bg-red-50 p-3 rounded">
-                                     <div class="text-sm text-gray-600">Shock Margin</div>
-                                     <div class="text-xl font-bold text-red-700">${(data.shock_margin * 100).toFixed(1)}%</div>
-                                 </div>
-                                 <div class="bg-blue-50 p-3 rounded">
-                                     <div class="text-sm text-gray-600">Delta</div>
-                                     <div class="text-xl font-bold ${data.delta_margin < 0 ? 'text-red-700' : 'text-green-700'}">${(data.delta_margin * 100).toFixed(2)}%</div>
-                                 </div>
-                             </div>
-                             <div class="mt-4 text-sm text-gray-600">
-                                 <p><strong>Rate Delta:</strong> ${rateDelta}% (${rateDelta * 100} basis points)</p>
-                                 <p><strong>Revenue:</strong> ${formatCurrency(data.details.revenue, currentCurrency)}</p>
-                                 <p><strong>Cost:</strong> ${formatCurrency(data.details.cost, currentCurrency)}</p>
-                                 <p><strong>Base Interest Expense:</strong> ${formatCurrency(data.details.base_interest_expense, currentCurrency)}</p>
-                                 <p><strong>Shock Interest Expense:</strong> ${formatCurrency(data.details.shock_interest_expense, currentCurrency)}</p>
-                             </div>
-                         </div>
-                     </div>
-                 `;
-                 
-                 showScenarioResults(resultsHtml, 'success');
-                 
-             } catch (error) {
-                 showScenarioResults(`Error: ${error.response?.data?.detail || error.message}`, 'error');
-             }
-         });
-
-         document.getElementById('runScenarioMatrix').addEventListener('click', async () => {
-             const symbol = document.getElementById('matrixSymbol').value.trim();
-
-             if (!symbol) {
-                 showScenarioResults('Please enter a stock symbol', 'error');
-                 return;
-             }
-
-             try {
-                 const response = await axios.get(`/scenario/matrix/${symbol}`);
-                 const data = response.data;
-                 
-                 if (data.length === 0 || data[0].scenario === 'error') {
-                     showScenarioResults('No data available for this symbol', 'error');
-                     return;
-                 }
-                 
-                 // Format results as a nice table
-                 const resultsHtml = `
-                     <div class="space-y-4">
-                         <div class="bg-white p-4 rounded-lg border">
-                             <h4 class="font-semibold text-lg mb-3">Scenario Matrix Analysis - ${symbol.toUpperCase()}</h4>
-                             <div class="overflow-x-auto">
-                                 <table class="w-full text-sm">
-                                     <thead>
-                                         <tr class="bg-gray-50">
-                                             <th class="text-left p-2">Scenario</th>
-                                             <th class="text-right p-2">Net Profit</th>
-                                             <th class="text-right p-2">Change from Base</th>
-                                         </tr>
-                                     </thead>
-                                     <tbody>
-                                         ${data.map((scenario, index) => {
-                                             const baseProfit = data.find(s => s.scenario === 'base')?.net_profit || 0;
-                                             const change = scenario.net_profit - baseProfit;
-                                             const changePercent = baseProfit > 0 ? (change / baseProfit * 100) : 0;
-                                             
-                                             return `
-                                                 <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                                                     <td class="p-2 font-medium">${getScenarioName(scenario.scenario)}</td>
-                                                     <td class="p-2 text-right font-mono">${formatCurrency(scenario.net_profit, currentCurrency)}</td>
-                                                     <td class="p-2 text-right font-mono ${change >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                                         ${change >= 0 ? '+' : ''}${formatCurrency(change, currentCurrency)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
-                                                     </td>
-                                                 </tr>
-                                             `;
-                                         }).join('')}
-                                     </tbody>
-                                 </table>
-                             </div>
-                             <div class="mt-4 text-sm text-gray-600">
-                                 <p><strong>Scenarios:</strong></p>
-                                 <ul class="list-disc list-inside space-y-1">
-                                     <li><strong>Base:</strong> No changes to inflation or interest rates</li>
-                                     <li><strong>+1% Inflation:</strong> Cost of goods sold increases by 1%</li>
-                                     <li><strong>+1% Interest Rate:</strong> Interest expense increases by 1%</li>
-                                     <li><strong>+1% Both:</strong> Both inflation and interest rate increase by 1%</li>
-                                 </ul>
-                             </div>
-                         </div>
-                     </div>
-                 `;
-                 
-                 showScenarioResults(resultsHtml, 'success');
-                 
-             } catch (error) {
-                 showScenarioResults(`Error: ${error.response?.data?.detail || error.message}`, 'error');
-             }
-         });
-
-         function showScenarioResults(content, type) {
-             const resultsDiv = document.getElementById('scenarioResults');
-             const contentDiv = document.getElementById('scenarioResultsContent');
-             
-             resultsDiv.classList.remove('hidden');
-             
-             if (type === 'error') {
-                 contentDiv.innerHTML = `<div class="text-red-600 font-medium">${content}</div>`;
-             } else {
-                 contentDiv.innerHTML = content;
-             }
-         }
-
-         function getScenarioName(scenario) {
-             const names = {
-                 'base': 'Base',
-                 '+inf': '+1% Inflation',
-                 '+rate': '+1% Interest Rate',
-                 '+both': '+1% Both'
-             };
-             return names[scenario] || scenario;
-         }
-
-        // Macro Analysis functionality
-        let macroChart = null; // Global chart instance
-
-        document.getElementById('fetchMacro').addEventListener('click', async () => {
-            const seriesId = document.getElementById('series_id').value;
-            const macroOut = document.getElementById('macroOut');
-            const macroChartDiv = document.getElementById('macroChart');
-            const chartContainer = document.getElementById('chartContainer');
-            
-            if (!seriesId) {
-                macroOut.textContent = 'Please select a macroeconomic indicator';
+            if (!symbol) {
+                showNotification('Please enter a stock symbol', 'error');
                 return;
             }
 
+            if (isNaN(rateDelta)) {
+                showNotification('Please enter a valid rate delta', 'error');
+                return;
+            }
+
+            showLoading('Analyzing interest rate shock...');
+
             try {
-                // First, ingest the data
-                const ingestResponse = await axios.post(`/ingest/macro/${seriesId}`);
-                macroOut.textContent = JSON.stringify(ingestResponse.data, null, 2);
+                const response = await axios.post('/scenario/interest-shock', {
+                    symbol: symbol,
+                    rate_delta: rateDelta / 100
+                });
                 
-                // Update chart placeholder with success message
-                if (ingestResponse.data.inserted > 0) {
-                    macroChartDiv.innerHTML = `
-                        <div class="text-green-600 mb-4">
-                            <p class="font-semibold">✓ Data fetched successfully!</p>
-                            <p class="text-sm">${ingestResponse.data.inserted} records inserted</p>
-                        </div>
-                    `;
-                } else {
-                    macroChartDiv.innerHTML = `
-                        <div class="text-blue-600 mb-4">
-                            <p class="font-semibold">ℹ Using existing data</p>
-                            <p class="text-sm">${ingestResponse.data.existing_records} existing records found</p>
-                        </div>
-                    `;
+                const data = response.data;
+                
+                if (data.error) {
+                    showNotification(`Error: ${data.error}`, 'error');
+                    return;
                 }
                 
-                // Show chart container
-                chartContainer.classList.remove('hidden');
+                const resultsHtml = `
+                    <div class="space-y-6">
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                            <h4 class="text-xl font-bold text-gray-900 mb-4">Interest Rate Shock Analysis - ${data.symbol}</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                    <div class="text-sm text-gray-600 mb-1">Base Margin</div>
+                                    <div class="text-2xl font-bold text-green-600">${(data.base_margin * 100).toFixed(1)}%</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                    <div class="text-sm text-gray-600 mb-1">Shock Margin</div>
+                                    <div class="text-2xl font-bold text-red-600">${(data.shock_margin * 100).toFixed(1)}%</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                    <div class="text-sm text-gray-600 mb-1">Impact</div>
+                                    <div class="text-2xl font-bold ${data.delta_margin < 0 ? 'text-red-600' : 'text-green-600'}">${(data.delta_margin * 100).toFixed(2)}%</div>
+                                </div>
+                            </div>
+                            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div><strong>Rate Change:</strong> ${rateDelta}% (${rateDelta * 100} bps)</div>
+                                <div><strong>Revenue:</strong> ${formatCurrency(data.details.revenue, currentCurrency)}</div>
+                                <div><strong>Cost:</strong> ${formatCurrency(data.details.cost, currentCurrency)}</div>
+                                <div><strong>Interest Expense:</strong> ${formatCurrency(data.details.base_interest_expense, currentCurrency)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 
-                // Now fetch the data for charting
+                showScenarioResults(resultsHtml);
+                showNotification('Interest shock analysis completed!', 'success');
+                
+            } catch (error) {
+                showNotification(`Error: ${error.response?.data?.detail || error.message}`, 'error');
+            }
+        }
+
+        async function runScenarioMatrix() {
+            const symbol = document.getElementById('matrixSymbol').value.trim();
+
+            if (!symbol) {
+                showNotification('Please enter a stock symbol', 'error');
+                return;
+            }
+
+            showLoading('Generating scenario matrix...');
+
+            try {
+                const response = await axios.get(`/scenario/matrix/${symbol}`);
+                const data = response.data;
+                
+                if (data.length === 0 || data[0].scenario === 'error') {
+                    showNotification('No data available for this symbol', 'error');
+                    return;
+                }
+                
+                const resultsHtml = `
+                    <div class="space-y-6">
+                        <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+                            <h4 class="text-xl font-bold text-gray-900 mb-4">Scenario Matrix - ${symbol.toUpperCase()}</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-white/50">
+                                            <th class="text-left p-3 font-semibold text-gray-700">Scenario</th>
+                                            <th class="text-right p-3 font-semibold text-gray-700">Net Profit</th>
+                                            <th class="text-right p-3 font-semibold text-gray-700">Change</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.map((scenario, index) => {
+                                            const baseProfit = data.find(s => s.scenario === 'base')?.net_profit || 0;
+                                            const change = scenario.net_profit - baseProfit;
+                                            const changePercent = baseProfit > 0 ? (change / baseProfit * 100) : 0;
+                                            
+                                            return `
+                                                <tr class="${index % 2 === 0 ? 'bg-white/30' : 'bg-white/10'}">
+                                                    <td class="p-3 font-medium">${getScenarioName(scenario.scenario)}</td>
+                                                    <td class="p-3 text-right font-mono">${formatCurrency(scenario.net_profit, currentCurrency)}</td>
+                                                    <td class="p-3 text-right font-mono ${change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                                        ${change >= 0 ? '+' : ''}${formatCurrency(change, currentCurrency)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                showScenarioResults(resultsHtml);
+                showNotification('Scenario matrix generated successfully!', 'success');
+                
+            } catch (error) {
+                showNotification(`Error: ${error.response?.data?.detail || error.message}`, 'error');
+            }
+        }
+
+        async function fetchMacroData() {
+            const seriesId = document.getElementById('series_id').value;
+            
+            if (!seriesId) {
+                showNotification('Please select an economic indicator', 'error');
+                return;
+            }
+
+            showLoading('Fetching macroeconomic data...');
+
+            try {
+                // Ingest data first
+                const ingestResponse = await axios.post(`/ingest/macro/${seriesId}`);
+                
+                // Fetch data for charting
                 const dataResponse = await axios.get(`/macro/${seriesId}`);
                 
                 if (dataResponse.data.records && dataResponse.data.records.length > 0) {
-                    // Prepare data for chart
-                    const records = dataResponse.data.records.reverse(); // Reverse to show chronological order
-                    const labels = records.map(record => {
-                        const date = new Date(record.date);
-                        // Format date more compactly
-                        return date.toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            year: '2-digit' 
-                        });
-                    });
-                    const values = records.map(record => record.value);
-                    
-                    // Create chart
-                    const ctx = document.getElementById('macroChartCanvas').getContext('2d');
-                    
-                    // Destroy existing chart if it exists
-                    if (macroChart) {
-                        macroChart.destroy();
-                    }
-                    
-                    macroChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: `${seriesId} - ${getSeriesName(seriesId)}`,
-                                data: values,
-                                borderColor: 'rgb(99, 102, 241)',
-                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                tension: 0.1,
-                                pointRadius: 1,
-                                pointHoverRadius: 4,
-                                borderWidth: 2,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: {
-                                intersect: false,
-                                mode: 'index'
-                            },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${seriesId} - ${getSeriesName(seriesId)}`,
-                                    font: {
-                                        size: 16,
-                                        weight: 'bold'
-                                    }
-                                },
-                                legend: {
-                                    display: true,
-                                    position: 'top'
-                                },
-                                tooltip: {
-                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                    titleColor: 'white',
-                                    bodyColor: 'white',
-                                    borderColor: 'rgb(99, 102, 241)',
-                                    borderWidth: 1
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    display: true,
-                                    title: {
-                                        display: true,
-                                        text: 'Date'
-                                    },
-                                    ticks: {
-                                        maxRotation: 45,
-                                        minRotation: 45
-                                    }
-                                },
-                                y: {
-                                    display: true,
-                                    title: {
-                                        display: true,
-                                        text: 'Value'
-                                    },
-                                    beginAtZero: false,
-                                    grid: {
-                                        color: 'rgba(0, 0, 0, 0.1)'
-                                    }
-                                }
-                            },
-                            elements: {
-                                point: {
-                                    hoverBackgroundColor: 'rgb(99, 102, 241)',
-                                    hoverBorderColor: 'white',
-                                    hoverBorderWidth: 2
-                                }
-                            }
-                        }
-                    });
+                    createMacroChart(dataResponse.data.records, seriesId);
+                    showNotification('Macro data fetched and charted successfully!', 'success');
                 } else {
-                    chartContainer.classList.add('hidden');
-                    macroChartDiv.innerHTML = `
-                        <div class="text-yellow-600">
-                            <p class="font-semibold">⚠ No data available for charting</p>
-                            <p class="text-sm">Data was ingested but no records found for display</p>
-                        </div>
-                    `;
+                    showNotification('No data available for charting', 'warning');
                 }
-                
             } catch (error) {
-                macroOut.textContent = `Error: ${error.response?.data?.detail || error.message}`;
-                chartContainer.classList.add('hidden');
-                macroChartDiv.innerHTML = `
-                    <div class="text-red-600">
-                        <p class="font-semibold">✗ Error fetching data</p>
-                        <p class="text-sm">Check the raw response below for details</p>
-                    </div>
-                `;
+                showNotification(`Error: ${error.response?.data?.detail || error.message}`, 'error');
             }
-        });
+        }
 
-        // Helper function to get series names
+        function createMacroChart(records, seriesId) {
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.classList.remove('hidden');
+            
+            const ctx = document.getElementById('macroChartCanvas').getContext('2d');
+            
+            if (macroChart) {
+                macroChart.destroy();
+            }
+            
+            const labels = records.reverse().map(record => {
+                const date = new Date(record.date);
+                return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+            });
+            const values = records.map(record => record.value);
+            
+            macroChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `${seriesId} - ${getSeriesName(seriesId)}`,
+                        data: values,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 6,
+                        borderWidth: 3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${seriesId} - ${getSeriesName(seriesId)}`,
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: { display: true, position: 'top' }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: { display: true, text: 'Date' },
+                            ticks: { maxRotation: 45, minRotation: 45 }
+                        },
+                        y: {
+                            display: true,
+                            title: { display: true, text: 'Value' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Utility Functions
+        function showResults(content) {
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('results').textContent = content;
+        }
+
+        function showScenarioResults(content) {
+            document.getElementById('scenarioResults').classList.remove('hidden');
+            document.getElementById('scenarioResultsContent').innerHTML = content;
+        }
+
+        function clearResults() {
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('results').textContent = '';
+        }
+
+        function clearScenarioResults() {
+            document.getElementById('scenarioResults').classList.add('hidden');
+            document.getElementById('scenarioResultsContent').innerHTML = '';
+        }
+
+        function showLoading(message) {
+            // You could add a loading spinner here
+            console.log('Loading:', message);
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                'bg-yellow-500 text-white'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function getScenarioName(scenario) {
+            const names = {
+                'base': 'Base',
+                '+inf': '+1% Inflation',
+                '+rate': '+1% Interest Rate',
+                '+both': '+1% Both'
+            };
+            return names[scenario] || scenario;
+        }
+
         function getSeriesName(seriesId) {
             const seriesNames = {
                 'EFFR': 'Effective Federal Funds Rate',
@@ -668,41 +680,21 @@
             return seriesNames[seriesId] || seriesId;
         }
 
-        // Currency Toggle Functionality
-        let currentCurrency = 'USD';
-        let fxRate = 1.0;
-        let fxRateCache = null;
-        let fxRateCacheTime = null;
-        const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
-
-        // Initialize currency toggle
-        document.addEventListener('DOMContentLoaded', async () => {
-            await fetchAndCacheFxRate();
-            setupCurrencyToggle();
-        });
-
+        // Currency functionality
         async function fetchAndCacheFxRate() {
             try {
                 const now = Date.now();
-                
-                // Check if cache is still valid
                 if (fxRateCache && fxRateCacheTime && (now - fxRateCacheTime) < CACHE_DURATION) {
                     fxRate = fxRateCache;
                     return;
                 }
 
-                // Fetch fresh FX rate
                 const response = await axios.get('/auto-levers/');
                 fxRate = response.data.fx_rate;
-                
-                // Update cache
                 fxRateCache = fxRate;
                 fxRateCacheTime = now;
-                
-                console.log(`FX Rate updated: ${fxRate} (USD/CAD)`);
             } catch (error) {
                 console.error('Error fetching FX rate:', error);
-                // Use fallback rate if API fails
                 fxRate = 1.35;
             }
         }
@@ -714,13 +706,8 @@
 
             toggleBtn.addEventListener('click', () => {
                 currentCurrency = currentCurrency === 'USD' ? 'CAD' : 'USD';
-                
-                // Update button display
                 currencySymbol.textContent = currentCurrency === 'USD' ? '$' : 'C$';
                 currencyCode.textContent = currentCurrency;
-                
-                // Refresh the current results with new currency
-                refreshCurrentResults();
             });
         }
 
@@ -733,116 +720,6 @@
             });
             return formatter.format(value);
         }
-
-        function updateAllMonetaryValues() {
-            // Find all elements with data-fx attribute
-            const fxElements = document.querySelectorAll('[data-fx]');
-            
-            fxElements.forEach(element => {
-                const originalValue = parseFloat(element.getAttribute('data-fx'));
-                if (!isNaN(originalValue)) {
-                    const convertedValue = currentCurrency === 'CAD' ? 
-                        (originalValue * fxRate) : originalValue;
-                    
-                    // Format the number with appropriate currency symbol
-                    const formattedValue = formatCurrency(convertedValue, currentCurrency);
-                    element.textContent = formattedValue;
-                }
-            });
-
-            // Update results area if it contains monetary values
-            updateResultsArea();
-        }
-
-        function updateResultsArea() {
-            const resultsElement = document.getElementById('results');
-            if (resultsElement && resultsElement.textContent) {
-                let content = resultsElement.textContent;
-                
-                // Find and convert USD amounts in the results
-                const usdPattern = /\$([0-9,]+(?:\.[0-9]{2})?)/g;
-                content = content.replace(usdPattern, (match, amount) => {
-                    const numValue = parseFloat(amount.replace(/,/g, ''));
-                    if (!isNaN(numValue)) {
-                        const convertedValue = currentCurrency === 'CAD' ? 
-                            (numValue * fxRate) : numValue;
-                        return formatCurrency(convertedValue, currentCurrency);
-                    }
-                    return match;
-                });
-                
-                resultsElement.textContent = content;
-            }
-        }
-
-        function refreshCurrentResults() {
-            const resultsElement = document.getElementById('results');
-            if (resultsElement && resultsElement.textContent && resultsElement.textContent.trim() !== '') {
-                // Try to parse the current results as JSON and re-format with new currency
-                try {
-                    // Extract the original data from the formatted results
-                    let content = resultsElement.textContent;
-                    
-                    // Remove currency formatting to get back to raw numbers
-                    content = content.replace(/[$,]/g, '');
-                    content = content.replace(/C\$/g, '');
-                    
-                    // Try to parse as JSON
-                    const data = JSON.parse(content);
-                    
-                    // Re-format with current currency
-                    let formattedResults = JSON.stringify(data, null, 2);
-                    
-                    // Convert monetary values
-                    if (data.totals) {
-                        const totals = data.totals;
-                        const profitValue = currentCurrency === 'CAD' ? totals.profit * fxRate : totals.profit;
-                        const adjProfitValue = currentCurrency === 'CAD' ? totals.adj_profit * fxRate : totals.adj_profit;
-                        const adjProfitFxValue = currentCurrency === 'CAD' ? totals.adj_profit_fx * fxRate : totals.adj_profit_fx;
-                        
-                        formattedResults = formattedResults.replace(
-                            `"profit": ${totals.profit}`,
-                            `"profit": ${formatCurrency(profitValue, currentCurrency)}`
-                        );
-                        formattedResults = formattedResults.replace(
-                            `"adj_profit": ${totals.adj_profit}`,
-                            `"adj_profit": ${formatCurrency(adjProfitValue, currentCurrency)}`
-                        );
-                        formattedResults = formattedResults.replace(
-                            `"adj_profit_fx": ${totals.adj_profit_fx}`,
-                            `"adj_profit_fx": ${formatCurrency(adjProfitFxValue, currentCurrency)}`
-                        );
-                    }
-                    
-                    // Handle company data
-                    if (data.revenue !== undefined) {
-                        const revenueValue = currentCurrency === 'CAD' ? data.revenue * fxRate : data.revenue;
-                        const costValue = currentCurrency === 'CAD' ? data.cost * fxRate : data.cost;
-                        const ebitdaValue = currentCurrency === 'CAD' ? data.ebitda * fxRate : data.ebitda;
-                        
-                        formattedResults = formattedResults.replace(
-                            `"revenue": ${data.revenue}`,
-                            `"revenue": ${formatCurrency(revenueValue, currentCurrency)}`
-                        );
-                        formattedResults = formattedResults.replace(
-                            `"cost": ${data.cost}`,
-                            `"cost": ${formatCurrency(costValue, currentCurrency)}`
-                        );
-                        formattedResults = formattedResults.replace(
-                            `"ebitda": ${data.ebitda}`,
-                            `"ebitda": ${formatCurrency(ebitdaValue, currentCurrency)}`
-                        );
-                    }
-                    
-                    resultsElement.textContent = formattedResults;
-                } catch (error) {
-                    // If parsing fails, just update the display with the current currency
-                    updateResultsArea();
-                }
-            }
-        }
-
-
     </script>
 </body>
 </html> 
