@@ -20,6 +20,19 @@
   @apply transition-opacity duration-200;
 }
 
+/* Currency toggle button styles */
+.currency-toggle-btn {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+.currency-toggle-btn:hover {
+  @apply transform scale-105 shadow-md;
+}
+
+.currency-toggle-btn:active {
+  @apply transform scale-95;
+}
+
 /* Chart container styles */
 #chartContainer {
   @apply transition-all duration-300 ease-in-out;
@@ -45,6 +58,11 @@
   
   #macroChartCanvas {
     height: 300px !important;
+  }
+  
+  /* Adjust currency toggle for mobile */
+  .currency-toggle-btn {
+    @apply px-2 py-1 text-xs;
   }
 }
 

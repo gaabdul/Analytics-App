@@ -10,7 +10,19 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="max-w-2xl mx-auto p-6">
-        <h1 class="text-3xl font-bold mb-6 text-center text-indigo-600">Analytics App</h1>
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Analytics App</h1>
+            
+            <!-- Currency Toggle Button -->
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-600">Currency:</span>
+                <button id="currencyToggle" class="currency-toggle-btn bg-indigo-100 text-indigo-700 px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 hover:bg-indigo-200">
+                    <span id="currencySymbol">$</span>
+                    <span id="currencyCode">USD</span>
+                </button>
+                <span class="text-xs text-gray-500">(FX rate cached for 10 min)</span>
+            </div>
+        </div>
         
         <div class="bg-white shadow-lg rounded-lg p-6 space-y-6">
             <!-- Tab Buttons -->
@@ -168,7 +180,7 @@
             switchTab(macroTab, macroTabBtn);
         });
 
-        // CSV Analysis functionality
+        // CSV Analysis functionality with currency conversion
         document.getElementById('runAnalysis').addEventListener('click', async () => {
             const fileInput = document.getElementById('csvFile');
             const useAuto = document.getElementById('useAuto').checked;
@@ -190,13 +202,40 @@
 
             try {
                 const response = await axios.post(`/analyze/?use_auto=${useAuto}`, formData);
-                results.textContent = JSON.stringify(response.data, null, 2);
+                const data = response.data;
+                
+                // Format the response with currency conversion
+                let formattedResults = JSON.stringify(data, null, 2);
+                
+                // Convert monetary values in the JSON string
+                if (data.totals) {
+                    const totals = data.totals;
+                    const profitValue = currentCurrency === 'CAD' ? totals.profit * fxRate : totals.profit;
+                    const adjProfitValue = currentCurrency === 'CAD' ? totals.adj_profit * fxRate : totals.adj_profit;
+                    const adjProfitFxValue = currentCurrency === 'CAD' ? totals.adj_profit_fx * fxRate : totals.adj_profit_fx;
+                    
+                    formattedResults = formattedResults.replace(
+                        `"profit": ${totals.profit}`,
+                        `"profit": ${formatCurrency(profitValue, currentCurrency)}`
+                    );
+                    formattedResults = formattedResults.replace(
+                        `"adj_profit": ${totals.adj_profit}`,
+                        `"adj_profit": ${formatCurrency(adjProfitValue, currentCurrency)}`
+                    );
+                    formattedResults = formattedResults.replace(
+                        `"adj_profit_fx": ${totals.adj_profit_fx}`,
+                        `"adj_profit_fx": ${formatCurrency(adjProfitFxValue, currentCurrency)}`
+                    );
+                }
+                
+                results.textContent = formattedResults;
+                
             } catch (error) {
                 results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
             }
         });
 
-        // Ticker Analysis functionality
+        // Ticker Analysis functionality with currency conversion
         document.getElementById('fetchTicker').addEventListener('click', async () => {
             const symbol = document.getElementById('tickerSymbol').value.trim();
             
@@ -207,7 +246,36 @@
 
             try {
                 const response = await axios.get(`/company/${symbol}`);
-                results.textContent = JSON.stringify(response.data, null, 2);
+                const data = response.data;
+                
+                // Format the response with currency conversion
+                let formattedResults = JSON.stringify(data, null, 2);
+                
+                // Convert monetary values in the JSON string
+                if (data.revenue) {
+                    const revenueValue = currentCurrency === 'CAD' ? data.revenue * fxRate : data.revenue;
+                    formattedResults = formattedResults.replace(
+                        `"revenue": ${data.revenue}`,
+                        `"revenue": ${formatCurrency(revenueValue, currentCurrency)}`
+                    );
+                }
+                if (data.cost) {
+                    const costValue = currentCurrency === 'CAD' ? data.cost * fxRate : data.cost;
+                    formattedResults = formattedResults.replace(
+                        `"cost": ${data.cost}`,
+                        `"cost": ${formatCurrency(costValue, currentCurrency)}`
+                    );
+                }
+                if (data.ebitda) {
+                    const ebitdaValue = currentCurrency === 'CAD' ? data.ebitda * fxRate : data.ebitda;
+                    formattedResults = formattedResults.replace(
+                        `"ebitda": ${data.ebitda}`,
+                        `"ebitda": ${formatCurrency(ebitdaValue, currentCurrency)}`
+                    );
+                }
+                
+                results.textContent = formattedResults;
+                
             } catch (error) {
                 results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
             }
@@ -389,6 +457,182 @@
             };
             return seriesNames[seriesId] || seriesId;
         }
+
+        // Currency Toggle Functionality
+        let currentCurrency = 'USD';
+        let fxRate = 1.0;
+        let fxRateCache = null;
+        let fxRateCacheTime = null;
+        const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
+
+        // Initialize currency toggle
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchAndCacheFxRate();
+            setupCurrencyToggle();
+        });
+
+        async function fetchAndCacheFxRate() {
+            try {
+                const now = Date.now();
+                
+                // Check if cache is still valid
+                if (fxRateCache && fxRateCacheTime && (now - fxRateCacheTime) < CACHE_DURATION) {
+                    fxRate = fxRateCache;
+                    return;
+                }
+
+                // Fetch fresh FX rate
+                const response = await axios.get('/auto-levers/');
+                fxRate = response.data.fx_rate;
+                
+                // Update cache
+                fxRateCache = fxRate;
+                fxRateCacheTime = now;
+                
+                console.log(`FX Rate updated: ${fxRate} (USD/CAD)`);
+            } catch (error) {
+                console.error('Error fetching FX rate:', error);
+                // Use fallback rate if API fails
+                fxRate = 1.35;
+            }
+        }
+
+        function setupCurrencyToggle() {
+            const toggleBtn = document.getElementById('currencyToggle');
+            const currencySymbol = document.getElementById('currencySymbol');
+            const currencyCode = document.getElementById('currencyCode');
+
+            toggleBtn.addEventListener('click', () => {
+                currentCurrency = currentCurrency === 'USD' ? 'CAD' : 'USD';
+                
+                // Update button display
+                currencySymbol.textContent = currentCurrency === 'USD' ? '$' : 'C$';
+                currencyCode.textContent = currentCurrency;
+                
+                // Refresh the current results with new currency
+                refreshCurrentResults();
+            });
+        }
+
+        function formatCurrency(value, currency) {
+            const formatter = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currency,
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+            return formatter.format(value);
+        }
+
+        function updateAllMonetaryValues() {
+            // Find all elements with data-fx attribute
+            const fxElements = document.querySelectorAll('[data-fx]');
+            
+            fxElements.forEach(element => {
+                const originalValue = parseFloat(element.getAttribute('data-fx'));
+                if (!isNaN(originalValue)) {
+                    const convertedValue = currentCurrency === 'CAD' ? 
+                        (originalValue * fxRate) : originalValue;
+                    
+                    // Format the number with appropriate currency symbol
+                    const formattedValue = formatCurrency(convertedValue, currentCurrency);
+                    element.textContent = formattedValue;
+                }
+            });
+
+            // Update results area if it contains monetary values
+            updateResultsArea();
+        }
+
+        function updateResultsArea() {
+            const resultsElement = document.getElementById('results');
+            if (resultsElement && resultsElement.textContent) {
+                let content = resultsElement.textContent;
+                
+                // Find and convert USD amounts in the results
+                const usdPattern = /\$([0-9,]+(?:\.[0-9]{2})?)/g;
+                content = content.replace(usdPattern, (match, amount) => {
+                    const numValue = parseFloat(amount.replace(/,/g, ''));
+                    if (!isNaN(numValue)) {
+                        const convertedValue = currentCurrency === 'CAD' ? 
+                            (numValue * fxRate) : numValue;
+                        return formatCurrency(convertedValue, currentCurrency);
+                    }
+                    return match;
+                });
+                
+                resultsElement.textContent = content;
+            }
+        }
+
+        function refreshCurrentResults() {
+            const resultsElement = document.getElementById('results');
+            if (resultsElement && resultsElement.textContent && resultsElement.textContent.trim() !== '') {
+                // Try to parse the current results as JSON and re-format with new currency
+                try {
+                    // Extract the original data from the formatted results
+                    let content = resultsElement.textContent;
+                    
+                    // Remove currency formatting to get back to raw numbers
+                    content = content.replace(/[$,]/g, '');
+                    content = content.replace(/C\$/g, '');
+                    
+                    // Try to parse as JSON
+                    const data = JSON.parse(content);
+                    
+                    // Re-format with current currency
+                    let formattedResults = JSON.stringify(data, null, 2);
+                    
+                    // Convert monetary values
+                    if (data.totals) {
+                        const totals = data.totals;
+                        const profitValue = currentCurrency === 'CAD' ? totals.profit * fxRate : totals.profit;
+                        const adjProfitValue = currentCurrency === 'CAD' ? totals.adj_profit * fxRate : totals.adj_profit;
+                        const adjProfitFxValue = currentCurrency === 'CAD' ? totals.adj_profit_fx * fxRate : totals.adj_profit_fx;
+                        
+                        formattedResults = formattedResults.replace(
+                            `"profit": ${totals.profit}`,
+                            `"profit": ${formatCurrency(profitValue, currentCurrency)}`
+                        );
+                        formattedResults = formattedResults.replace(
+                            `"adj_profit": ${totals.adj_profit}`,
+                            `"adj_profit": ${formatCurrency(adjProfitValue, currentCurrency)}`
+                        );
+                        formattedResults = formattedResults.replace(
+                            `"adj_profit_fx": ${totals.adj_profit_fx}`,
+                            `"adj_profit_fx": ${formatCurrency(adjProfitFxValue, currentCurrency)}`
+                        );
+                    }
+                    
+                    // Handle company data
+                    if (data.revenue !== undefined) {
+                        const revenueValue = currentCurrency === 'CAD' ? data.revenue * fxRate : data.revenue;
+                        const costValue = currentCurrency === 'CAD' ? data.cost * fxRate : data.cost;
+                        const ebitdaValue = currentCurrency === 'CAD' ? data.ebitda * fxRate : data.ebitda;
+                        
+                        formattedResults = formattedResults.replace(
+                            `"revenue": ${data.revenue}`,
+                            `"revenue": ${formatCurrency(revenueValue, currentCurrency)}`
+                        );
+                        formattedResults = formattedResults.replace(
+                            `"cost": ${data.cost}`,
+                            `"cost": ${formatCurrency(costValue, currentCurrency)}`
+                        );
+                        formattedResults = formattedResults.replace(
+                            `"ebitda": ${data.ebitda}`,
+                            `"ebitda": ${formatCurrency(ebitdaValue, currentCurrency)}`
+                        );
+                    }
+                    
+                    resultsElement.textContent = formattedResults;
+                } catch (error) {
+                    // If parsing fails, just update the display with the current currency
+                    updateResultsArea();
+                }
+            }
+        }
+
+
     </script>
 </body>
 </html> 
