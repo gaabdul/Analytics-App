@@ -109,6 +109,11 @@ class RevenueTrend(BaseModel):
     cagr: float
     message: str
 
+class InterestShockRequest(BaseModel):
+    symbol: str
+    base_years: int = 10
+    rate_delta: float
+
 @app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
     df = pd.read_csv(file.file)
@@ -619,6 +624,136 @@ async def get_macro_data(series_id: str):
             "records": [],
             "count": 0
         }
+
+@app.post("/scenario/interest-shock")
+async def interest_rate_shock_scenario(request: InterestShockRequest):
+    """
+    Calculate the impact of interest rate changes on net profit margin.
+    
+    Assumptions:
+    • Fixed debt level: Assumes company maintains same debt structure
+    • Linear interest expense scaling: Interest expense changes proportionally with rate delta
+    • Revenue and operating costs remain constant in the shock scenario
+    • Uses latest available financial data for calculations
+    
+    Formula:
+    • Base net profit margin = (Revenue - Cost - Interest Expense) / Revenue
+    • Shock interest expense = Base interest expense × (1 + rate_delta)
+    • Shock net profit margin = (Revenue - Cost - Shock interest expense) / Revenue
+    • Delta margin = Shock margin - Base margin
+    """
+    try:
+        # Fetch latest company financial data
+        ticker = yfinance.Ticker(request.symbol)
+        income_stmt = ticker.quarterly_income_stmt
+        
+        if income_stmt.empty:
+            return {
+                "symbol": request.symbol.upper(),
+                "error": "No financial data available for this symbol",
+                "base_margin": None,
+                "shock_margin": None,
+                "delta_margin": None
+            }
+        
+        # Get the most recent quarter data
+        latest_data = income_stmt.iloc[:, 0]
+        
+        # Extract financial metrics
+        revenue = 0
+        cost = 0
+        interest_expense = 0
+        
+        # Revenue
+        for col_name in ["Total Revenue", "Revenue", "TotalRevenue"]:
+            if col_name in latest_data.index:
+                revenue = float(latest_data[col_name])
+                break
+        
+        # Cost of Revenue
+        for col_name in ["Cost Of Revenue", "Cost of Revenue", "CostOfRevenue"]:
+            if col_name in latest_data.index:
+                cost = float(latest_data[col_name])
+                break
+        
+        # Interest Expense - try different possible names
+        for col_name in ["Interest Expense", "InterestExpense", "Interest Expense, Net", "Net Interest Expense"]:
+            if col_name in latest_data.index:
+                interest_expense = abs(float(latest_data[col_name]))  # Use absolute value
+                break
+        
+        # If no interest expense found, try to estimate from financial statements
+        if interest_expense == 0:
+            # Try to get from balance sheet for debt estimation
+            try:
+                balance_sheet = ticker.quarterly_balance_sheet
+                if not balance_sheet.empty:
+                    latest_bs = balance_sheet.iloc[:, 0]
+                    
+                    # Look for debt-related items
+                    total_debt = 0
+                    for debt_col in ["Total Debt", "TotalDebt", "Long Term Debt", "LongTermDebt"]:
+                        if debt_col in latest_bs.index:
+                            total_debt = abs(float(latest_bs[debt_col]))
+                            break
+                    
+                    # Estimate interest expense as 3% of total debt (typical corporate rate)
+                    if total_debt > 0:
+                        interest_expense = total_debt * 0.03
+            except Exception as e:
+                print(f"Could not estimate interest expense: {e}")
+        
+        # Validate we have the necessary data
+        if revenue <= 0:
+            return {
+                "symbol": request.symbol.upper(),
+                "error": "No valid revenue data available",
+                "base_margin": None,
+                "shock_margin": None,
+                "delta_margin": None
+            }
+        
+        # Calculate base net profit margin
+        base_net_income = revenue - cost - interest_expense
+        base_margin = base_net_income / revenue if revenue > 0 else 0
+        
+        # Calculate shock scenario
+        # • Interest expense increases by rate_delta proportion
+        # • Revenue and operating costs remain constant
+        shock_interest_expense = interest_expense * (1 + request.rate_delta)
+        shock_net_income = revenue - cost - shock_interest_expense
+        shock_margin = shock_net_income / revenue if revenue > 0 else 0
+        
+        # Calculate delta
+        delta_margin = shock_margin - base_margin
+        
+        return {
+            "symbol": request.symbol.upper(),
+            "base_margin": round(base_margin, 3),
+            "shock_margin": round(shock_margin, 3),
+            "delta_margin": round(delta_margin, 3),
+            "details": {
+                "revenue": revenue,
+                "cost": cost,
+                "base_interest_expense": interest_expense,
+                "shock_interest_expense": shock_interest_expense,
+                "rate_delta": request.rate_delta
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "symbol": request.symbol.upper(),
+            "error": f"Error calculating interest shock scenario: {str(e)}",
+            "base_margin": None,
+            "shock_margin": None,
+            "delta_margin": None
+        }
+
+@app.get("/test-endpoint")
+async def test_endpoint():
+    """Simple test endpoint to verify server is running updated code"""
+    return {"message": "Test endpoint working", "timestamp": datetime.now().isoformat()}
 
 if __name__ == "__main__":
     import uvicorn
