@@ -22,6 +22,15 @@ async def read_root():
     """Serve the main index.html file"""
     return FileResponse('static/index.html')
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "service": "analytics-app"
+    }
+
 # Create tables on startup
 create_tables()
 
@@ -210,20 +219,43 @@ async def get_company_financials(symbol: str):
         }
 
 @app.get("/ingest/company/{symbol}")
-async def ingest_company_data(symbol: str):
-    """Ingest 20 years of quarterly company data from Yahoo Finance"""
+async def ingest_company_data(
+    symbol: str, 
+    years: int = Query(20, description="Number of years to fetch (default: 20)"),
+    frequency: str = Query("quarterly", description="Data frequency: 'quarterly' or 'annual'")
+):
+    """Ingest company financial data from Yahoo Finance
+    
+    Args:
+        symbol: Stock symbol (e.g., MSFT, AAPL)
+        years: Number of years to fetch (default: 20, max: 20)
+        frequency: Data frequency - 'quarterly' or 'annual' (default: quarterly)
+    """
     try:
+        # Validate parameters
+        if years > 20:
+            years = 20  # Yahoo Finance limit
+        if frequency not in ["quarterly", "annual"]:
+            frequency = "quarterly"
+        
         # Get ticker data
         ticker = yfinance.Ticker(symbol)
         
-        # Get quarterly income statement for last 20 years
-        income_stmt = ticker.quarterly_income_stmt
+        # Get financial statements based on frequency
+        if frequency == "annual":
+            income_stmt = ticker.income_stmt
+            balance_sheet = ticker.balance_sheet
+        else:
+            income_stmt = ticker.quarterly_income_stmt
+            balance_sheet = ticker.quarterly_balance_sheet
         
         if income_stmt.empty:
             return {
                 "symbol": symbol,
                 "message": "No financial data available",
-                "records_inserted": 0
+                "records_inserted": 0,
+                "frequency": frequency,
+                "years_requested": years
             }
         
         # Create database session
@@ -233,12 +265,18 @@ async def ingest_company_data(symbol: str):
             # Prepare data for bulk insert
             records_to_insert = []
             
-            for date_str in income_stmt.columns:
+            # Get the most recent years of data
+            available_dates = list(income_stmt.columns)
+            if len(available_dates) > years:
+                available_dates = available_dates[:years]
+            
+            for date_str in available_dates:
                 # Convert date string to datetime
                 date_obj = pd.to_datetime(date_str).date()
+                fiscal_year = date_obj.year
                 
-                # Get data for this quarter
-                quarter_data = income_stmt[date_str]
+                # Get data for this period
+                period_data = income_stmt[date_str]
                 
                 # Extract values with fallbacks
                 revenue = 0
@@ -247,22 +285,23 @@ async def ingest_company_data(symbol: str):
                 
                 # Try different possible column names for revenue and cost
                 for col_name in ["Total Revenue", "Revenue", "TotalRevenue"]:
-                    if col_name in quarter_data.index:
-                        revenue = float(quarter_data[col_name])
+                    if col_name in period_data.index:
+                        revenue = float(period_data[col_name])
                         break
                 
                 for col_name in ["Cost Of Revenue", "Cost of Revenue", "CostOfRevenue"]:
-                    if col_name in quarter_data.index:
-                        cost = float(quarter_data[col_name])
+                    if col_name in period_data.index:
+                        cost = float(period_data[col_name])
                         break
                 
-                if "EBITDA" in quarter_data.index:
-                    ebitda = float(quarter_data["EBITDA"])
+                if "EBITDA" in period_data.index:
+                    ebitda = float(period_data["EBITDA"])
                 
                 # Create record
                 record = CompanyFact(
                     symbol=symbol.upper(),
                     date=date_obj,
+                    fiscal_year=fiscal_year,
                     revenue=revenue,
                     cost=cost,
                     ebitda=ebitda
@@ -275,12 +314,16 @@ async def ingest_company_data(symbol: str):
             
             return {
                 "symbol": symbol.upper(),
-                "message": f"Successfully ingested {len(records_to_insert)} quarterly records",
+                "message": f"Successfully ingested {len(records_to_insert)} {frequency} records",
                 "records_inserted": len(records_to_insert),
+                "frequency": frequency,
+                "years_requested": years,
+                "years_actual": len(available_dates),
                 "date_range": {
                     "earliest": min([r.date for r in records_to_insert]).isoformat(),
                     "latest": max([r.date for r in records_to_insert]).isoformat()
-                }
+                },
+                "fiscal_years": sorted(list(set([r.fiscal_year for r in records_to_insert])))
             }
             
         finally:
@@ -290,7 +333,9 @@ async def ingest_company_data(symbol: str):
         return {
             "symbol": symbol,
             "message": f"Error ingesting data: {str(e)}",
-            "records_inserted": 0
+            "records_inserted": 0,
+            "frequency": frequency,
+            "years_requested": years
         }
 
 @app.get("/data/company/{symbol}")
@@ -488,3 +533,7 @@ async def get_macro_data(series_id: str):
             "records": [],
             "count": 0
         }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -12,7 +12,8 @@ This platform enables users to upload financial CSV data and analyze it using re
 - **💱 Live Exchange Rates**: Real-time currency conversion via Yahoo Finance
 - **📊 CSV Analysis**: Upload and analyze financial data with pandas
 - **🔧 Economic Levers**: Adjustable parameters for inflation, interest rates, wage growth
-- **🏢 Company Financials**: Fetch quarterly financial data for any public company
+- **🏢 Company Financials**: Fetch quarterly and annual financial data for any public company
+- **📅 Annual Data Support**: 10+ years of annual financial data for trend analysis
 - **💾 Data Persistence**: SQLite database for storing historical data
 - **🌐 RESTful API**: Complete API with automatic documentation
 - **📱 Web Interface**: User-friendly HTML form for data upload and analysis
@@ -119,7 +120,37 @@ Get real-time economic indicators.
 Get latest quarterly financials for any public company.
 
 #### `GET /ingest/company/{symbol}`
-Bulk import 20 years of quarterly data for analysis.
+Bulk import company financial data with flexible parameters.
+
+**Query Parameters:**
+- `years` (int): Number of years to fetch (1-20, default: 20)
+- `frequency` (str): Data frequency - `quarterly` or `annual` (default: quarterly)
+
+**Examples:**
+```bash
+# Fetch 10 years of annual data
+curl "http://localhost:8000/ingest/company/MSFT?years=10&frequency=annual"
+
+# Fetch 5 years of quarterly data
+curl "http://localhost:8000/ingest/company/AAPL?years=5&frequency=quarterly"
+```
+
+**Response:**
+```json
+{
+  "symbol": "MSFT",
+  "message": "Successfully ingested 4 annual records",
+  "records_inserted": 4,
+  "frequency": "annual",
+  "years_requested": 10,
+  "years_actual": 4,
+  "date_range": {
+    "earliest": "2021-06-30",
+    "latest": "2024-06-30"
+  },
+  "fiscal_years": [2021, 2022, 2023, 2024]
+}
+```
 
 #### `GET /data/company/{symbol}`
 Retrieve stored historical company data.
@@ -160,6 +191,8 @@ FRED_API_KEY=your_fred_api_key_here
 - **Financial Modeling**: Incorporate real economic factors into projections
 - **Risk Analysis**: Assess impact of inflation and interest rate changes
 - **Investment Research**: Analyze company performance with macro context
+- **Long-term Trend Analysis**: 10+ years of annual data for revenue growth and margin trends
+- **Annual vs Quarterly Comparison**: Seasonal patterns and fiscal year analysis
 - **Academic Research**: Economic data analysis and visualization
 - **Business Planning**: Scenario analysis with real economic indicators
 

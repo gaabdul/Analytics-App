@@ -19,12 +19,13 @@ class CompanyFact(Base):
     id = Column(Integer, primary_key=True, index=True)
     symbol = Column(String, index=True, nullable=False)
     date = Column(Date, nullable=False)
+    fiscal_year = Column(Integer, index=True)  # Added for annual data support
     revenue = Column(Float)
     cost = Column(Float)
     ebitda = Column(Float)
     
     def __repr__(self):
-        return f"<CompanyFact(symbol='{self.symbol}', date='{self.date}', revenue={self.revenue}, cost={self.cost}, ebitda={self.ebitda})>"
+        return f"<CompanyFact(symbol='{self.symbol}', date='{self.date}', fiscal_year={self.fiscal_year}, revenue={self.revenue}, cost={self.cost}, ebitda={self.ebitda})>"
 
 class MacroFact(Base):
     """Macroeconomic facts from FRED"""
