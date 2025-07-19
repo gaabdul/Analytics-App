@@ -33,6 +33,9 @@
                 <button id="tickerTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
                     Ticker Analysis
                 </button>
+                <button id="scenarioTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
+                    Scenario Analysis
+                </button>
                 <button id="macroTabBtn" class="bg-gray-100 text-gray-600 rounded px-4 py-2 font-semibold tab-btn">
                     Macro Analysis
                 </button>
@@ -91,6 +94,49 @@
                 </button>
             </div>
             
+                         <!-- Scenario Analysis Tab -->
+             <div id="scenarioTab" class="space-y-4 hidden">
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <!-- Interest Rate Shock Analysis -->
+                     <div class="bg-gray-50 p-4 rounded-lg">
+                         <h3 class="text-lg font-semibold text-gray-800 mb-3">Interest Rate Shock Analysis</h3>
+                         <div class="space-y-3">
+                             <div>
+                                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Symbol</label>
+                                 <input type="text" id="shockSymbol" placeholder="e.g., AAPL, MSFT" class="w-full p-2 border border-gray-300 rounded-md">
+                             </div>
+                             <div>
+                                 <label class="block text-sm font-medium text-gray-700 mb-1">Rate Delta (%)</label>
+                                 <input type="number" id="rateDelta" step="0.01" placeholder="e.g., 1.0 for +100bps" class="w-full p-2 border border-gray-300 rounded-md">
+                             </div>
+                             <button id="runInterestShock" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                                 Analyze Interest Shock
+                             </button>
+                         </div>
+                     </div>
+                     
+                     <!-- Scenario Matrix Analysis -->
+                     <div class="bg-gray-50 p-4 rounded-lg">
+                         <h3 class="text-lg font-semibold text-gray-800 mb-3">Scenario Matrix Analysis</h3>
+                         <div class="space-y-3">
+                             <div>
+                                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Symbol</label>
+                                 <input type="text" id="matrixSymbol" placeholder="e.g., AAPL, MSFT" class="w-full p-2 border border-gray-300 rounded-md">
+                             </div>
+                             <button id="runScenarioMatrix" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors">
+                                 Generate Scenario Matrix
+                             </button>
+                         </div>
+                     </div>
+                 </div>
+                 
+                 <!-- Results Display -->
+                 <div id="scenarioResults" class="hidden">
+                     <h3 class="text-lg font-semibold text-gray-800 mb-3">Analysis Results</h3>
+                     <div id="scenarioResultsContent" class="bg-gray-100 p-4 rounded-md"></div>
+                 </div>
+             </div>
+            
             <!-- Macro Analysis Tab -->
             <div id="macroTab" class="space-y-4 hidden">
                 <div>
@@ -142,15 +188,17 @@
         // Tab switching functionality
         const csvTabBtn = document.getElementById('csvTabBtn');
         const tickerTabBtn = document.getElementById('tickerTabBtn');
+        const scenarioTabBtn = document.getElementById('scenarioTabBtn');
         const macroTabBtn = document.getElementById('macroTabBtn');
         const csvTab = document.getElementById('csvTab');
         const tickerTab = document.getElementById('tickerTab');
+        const scenarioTab = document.getElementById('scenarioTab');
         const macroTab = document.getElementById('macroTab');
         const results = document.getElementById('results');
 
         function switchTab(activeTab, activeBtn) {
             // Hide all tabs
-            [csvTab, tickerTab, macroTab].forEach(tab => {
+            [csvTab, tickerTab, scenarioTab, macroTab].forEach(tab => {
                 tab.classList.add('hidden');
             });
             
@@ -158,7 +206,7 @@
             activeTab.classList.remove('hidden');
             
             // Reset all buttons
-            [csvTabBtn, tickerTabBtn, macroTabBtn].forEach(btn => {
+            [csvTabBtn, tickerTabBtn, scenarioTabBtn, macroTabBtn].forEach(btn => {
                 btn.classList.remove('bg-indigo-100', 'text-indigo-700');
                 btn.classList.add('bg-gray-100', 'text-gray-600');
             });
@@ -174,6 +222,10 @@
 
         tickerTabBtn.addEventListener('click', () => {
             switchTab(tickerTab, tickerTabBtn);
+        });
+
+        scenarioTabBtn.addEventListener('click', () => {
+            switchTab(scenarioTab, scenarioTabBtn);
         });
 
         macroTabBtn.addEventListener('click', () => {
@@ -280,6 +332,164 @@
                 results.textContent = `Error: ${error.response?.data?.detail || error.message}`;
             }
         });
+
+                 // Scenario Analysis functionality
+         document.getElementById('runInterestShock').addEventListener('click', async () => {
+             const symbol = document.getElementById('shockSymbol').value.trim();
+             const rateDelta = parseFloat(document.getElementById('rateDelta').value);
+
+             if (!symbol) {
+                 showScenarioResults('Please enter a stock symbol', 'error');
+                 return;
+             }
+
+             if (isNaN(rateDelta)) {
+                 showScenarioResults('Please enter a valid rate delta', 'error');
+                 return;
+             }
+
+             try {
+                 const response = await axios.post('/scenario/interest-shock', {
+                     symbol: symbol,
+                     rate_delta: rateDelta / 100 // Convert percentage to decimal
+                 });
+                 
+                 const data = response.data;
+                 
+                 if (data.error) {
+                     showScenarioResults(`Error: ${data.error}`, 'error');
+                     return;
+                 }
+                 
+                 // Format results as a nice table
+                 const resultsHtml = `
+                     <div class="space-y-4">
+                         <div class="bg-white p-4 rounded-lg border">
+                             <h4 class="font-semibold text-lg mb-3">Interest Rate Shock Analysis - ${data.symbol}</h4>
+                             <div class="grid grid-cols-3 gap-4 text-center">
+                                 <div class="bg-green-50 p-3 rounded">
+                                     <div class="text-sm text-gray-600">Base Margin</div>
+                                     <div class="text-xl font-bold text-green-700">${(data.base_margin * 100).toFixed(1)}%</div>
+                                 </div>
+                                 <div class="bg-red-50 p-3 rounded">
+                                     <div class="text-sm text-gray-600">Shock Margin</div>
+                                     <div class="text-xl font-bold text-red-700">${(data.shock_margin * 100).toFixed(1)}%</div>
+                                 </div>
+                                 <div class="bg-blue-50 p-3 rounded">
+                                     <div class="text-sm text-gray-600">Delta</div>
+                                     <div class="text-xl font-bold ${data.delta_margin < 0 ? 'text-red-700' : 'text-green-700'}">${(data.delta_margin * 100).toFixed(2)}%</div>
+                                 </div>
+                             </div>
+                             <div class="mt-4 text-sm text-gray-600">
+                                 <p><strong>Rate Delta:</strong> ${rateDelta}% (${rateDelta * 100} basis points)</p>
+                                 <p><strong>Revenue:</strong> ${formatCurrency(data.details.revenue, currentCurrency)}</p>
+                                 <p><strong>Cost:</strong> ${formatCurrency(data.details.cost, currentCurrency)}</p>
+                                 <p><strong>Base Interest Expense:</strong> ${formatCurrency(data.details.base_interest_expense, currentCurrency)}</p>
+                                 <p><strong>Shock Interest Expense:</strong> ${formatCurrency(data.details.shock_interest_expense, currentCurrency)}</p>
+                             </div>
+                         </div>
+                     </div>
+                 `;
+                 
+                 showScenarioResults(resultsHtml, 'success');
+                 
+             } catch (error) {
+                 showScenarioResults(`Error: ${error.response?.data?.detail || error.message}`, 'error');
+             }
+         });
+
+         document.getElementById('runScenarioMatrix').addEventListener('click', async () => {
+             const symbol = document.getElementById('matrixSymbol').value.trim();
+
+             if (!symbol) {
+                 showScenarioResults('Please enter a stock symbol', 'error');
+                 return;
+             }
+
+             try {
+                 const response = await axios.get(`/scenario/matrix/${symbol}`);
+                 const data = response.data;
+                 
+                 if (data.length === 0 || data[0].scenario === 'error') {
+                     showScenarioResults('No data available for this symbol', 'error');
+                     return;
+                 }
+                 
+                 // Format results as a nice table
+                 const resultsHtml = `
+                     <div class="space-y-4">
+                         <div class="bg-white p-4 rounded-lg border">
+                             <h4 class="font-semibold text-lg mb-3">Scenario Matrix Analysis - ${symbol.toUpperCase()}</h4>
+                             <div class="overflow-x-auto">
+                                 <table class="w-full text-sm">
+                                     <thead>
+                                         <tr class="bg-gray-50">
+                                             <th class="text-left p-2">Scenario</th>
+                                             <th class="text-right p-2">Net Profit</th>
+                                             <th class="text-right p-2">Change from Base</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                         ${data.map((scenario, index) => {
+                                             const baseProfit = data.find(s => s.scenario === 'base')?.net_profit || 0;
+                                             const change = scenario.net_profit - baseProfit;
+                                             const changePercent = baseProfit > 0 ? (change / baseProfit * 100) : 0;
+                                             
+                                             return `
+                                                 <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                                                     <td class="p-2 font-medium">${getScenarioName(scenario.scenario)}</td>
+                                                     <td class="p-2 text-right font-mono">${formatCurrency(scenario.net_profit, currentCurrency)}</td>
+                                                     <td class="p-2 text-right font-mono ${change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                                         ${change >= 0 ? '+' : ''}${formatCurrency(change, currentCurrency)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
+                                                     </td>
+                                                 </tr>
+                                             `;
+                                         }).join('')}
+                                     </tbody>
+                                 </table>
+                             </div>
+                             <div class="mt-4 text-sm text-gray-600">
+                                 <p><strong>Scenarios:</strong></p>
+                                 <ul class="list-disc list-inside space-y-1">
+                                     <li><strong>Base:</strong> No changes to inflation or interest rates</li>
+                                     <li><strong>+1% Inflation:</strong> Cost of goods sold increases by 1%</li>
+                                     <li><strong>+1% Interest Rate:</strong> Interest expense increases by 1%</li>
+                                     <li><strong>+1% Both:</strong> Both inflation and interest rate increase by 1%</li>
+                                 </ul>
+                             </div>
+                         </div>
+                     </div>
+                 `;
+                 
+                 showScenarioResults(resultsHtml, 'success');
+                 
+             } catch (error) {
+                 showScenarioResults(`Error: ${error.response?.data?.detail || error.message}`, 'error');
+             }
+         });
+
+         function showScenarioResults(content, type) {
+             const resultsDiv = document.getElementById('scenarioResults');
+             const contentDiv = document.getElementById('scenarioResultsContent');
+             
+             resultsDiv.classList.remove('hidden');
+             
+             if (type === 'error') {
+                 contentDiv.innerHTML = `<div class="text-red-600 font-medium">${content}</div>`;
+             } else {
+                 contentDiv.innerHTML = content;
+             }
+         }
+
+         function getScenarioName(scenario) {
+             const names = {
+                 'base': 'Base',
+                 '+inf': '+1% Inflation',
+                 '+rate': '+1% Interest Rate',
+                 '+both': '+1% Both'
+             };
+             return names[scenario] || scenario;
+         }
 
         // Macro Analysis functionality
         let macroChart = null; // Global chart instance
