@@ -114,6 +114,10 @@ class InterestShockRequest(BaseModel):
     base_years: int = 10
     rate_delta: float
 
+class ScenarioResult(BaseModel):
+    scenario: str
+    net_profit: float
+
 @app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
     df = pd.read_csv(file.file)
@@ -749,6 +753,136 @@ async def interest_rate_shock_scenario(request: InterestShockRequest):
             "shock_margin": None,
             "delta_margin": None
         }
+
+@app.get("/scenario/matrix/{symbol}", response_model=list[ScenarioResult])
+async def get_scenario_matrix(symbol: str):
+    """
+    Generate scenario matrix showing combined effects of ±1% inflation and ±1% interest rate changes on net profit.
+    
+    Scenarios:
+    • base: No changes to inflation or interest rates
+    • +inf: +1% inflation affecting cost of goods sold
+    • +rate: +1% interest rate affecting interest expense
+    • +both: +1% both inflation and interest rate
+    
+    Assumptions:
+    • Inflation affects cost of goods sold linearly
+    • Interest rate changes affect interest expense proportionally
+    • Revenue remains constant across all scenarios
+    • Uses latest available financial data
+    """
+    try:
+        # Fetch latest company financial data
+        ticker = yfinance.Ticker(symbol)
+        income_stmt = ticker.quarterly_income_stmt
+        
+        if income_stmt.empty:
+            return [
+                ScenarioResult(scenario="error", net_profit=0)
+            ]
+        
+        # Get the most recent quarter data
+        latest_data = income_stmt.iloc[:, 0]
+        
+        # Extract financial metrics
+        revenue = 0
+        cost_of_goods_sold = 0
+        interest_expense = 0
+        
+        # Revenue
+        for col_name in ["Total Revenue", "Revenue", "TotalRevenue"]:
+            if col_name in latest_data.index:
+                revenue = float(latest_data[col_name])
+                break
+        
+        # Cost of Goods Sold
+        for col_name in ["Cost Of Revenue", "Cost of Revenue", "CostOfRevenue", "Cost of Goods Sold"]:
+            if col_name in latest_data.index:
+                cost_of_goods_sold = float(latest_data[col_name])
+                break
+        
+        # Interest Expense
+        for col_name in ["Interest Expense", "InterestExpense", "Interest Expense, Net", "Net Interest Expense"]:
+            if col_name in latest_data.index:
+                interest_expense = abs(float(latest_data[col_name]))  # Use absolute value
+                break
+        
+        # If no interest expense found, try to estimate from balance sheet
+        if interest_expense == 0:
+            try:
+                balance_sheet = ticker.quarterly_balance_sheet
+                if not balance_sheet.empty:
+                    latest_bs = balance_sheet.iloc[:, 0]
+                    
+                    # Look for debt-related items
+                    total_debt = 0
+                    for debt_col in ["Total Debt", "TotalDebt", "Long Term Debt", "LongTermDebt"]:
+                        if debt_col in latest_bs.index:
+                            total_debt = abs(float(latest_bs[debt_col]))
+                            break
+                    
+                    # Estimate interest expense as 3% of total debt
+                    if total_debt > 0:
+                        interest_expense = total_debt * 0.03
+            except Exception as e:
+                print(f"Could not estimate interest expense: {e}")
+        
+        # Validate we have the necessary data
+        if revenue <= 0:
+            return [
+                ScenarioResult(scenario="error", net_profit=0)
+            ]
+        
+        # Calculate base net profit
+        base_net_profit = revenue - cost_of_goods_sold - interest_expense
+        
+        # Define scenarios
+        scenarios = [
+            {
+                "name": "base",
+                "inflation_delta": 0.0,
+                "rate_delta": 0.0
+            },
+            {
+                "name": "+inf",
+                "inflation_delta": 0.01,  # +1%
+                "rate_delta": 0.0
+            },
+            {
+                "name": "+rate",
+                "inflation_delta": 0.0,
+                "rate_delta": 0.01  # +1%
+            },
+            {
+                "name": "+both",
+                "inflation_delta": 0.01,  # +1%
+                "rate_delta": 0.01  # +1%
+            }
+        ]
+        
+        # Calculate net profit for each scenario
+        results = []
+        for scenario in scenarios:
+            # Apply inflation effect to cost of goods sold
+            adjusted_cost = cost_of_goods_sold * (1 + scenario["inflation_delta"])
+            
+            # Apply interest rate effect to interest expense
+            adjusted_interest = interest_expense * (1 + scenario["rate_delta"])
+            
+            # Calculate net profit
+            net_profit = revenue - adjusted_cost - adjusted_interest
+            
+            results.append(ScenarioResult(
+                scenario=scenario["name"],
+                net_profit=round(net_profit, 0)  # Round to nearest dollar
+            ))
+        
+        return results
+        
+    except Exception as e:
+        return [
+            ScenarioResult(scenario="error", net_profit=0)
+        ]
 
 @app.get("/test-endpoint")
 async def test_endpoint():
