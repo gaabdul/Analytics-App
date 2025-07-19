@@ -102,6 +102,13 @@ class AutoLevers(BaseModel):
     inflation: float
     wage_growth: float
 
+class RevenueTrend(BaseModel):
+    symbol: str
+    years: list[str]
+    revenue: list[float]
+    cagr: float
+    message: str
+
 @app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
     df = pd.read_csv(file.file)
@@ -392,6 +399,85 @@ async def get_stored_company_data(symbol: str):
             "records": [],
             "count": 0
         }
+
+@app.get("/company/{symbol}/revenue-trend", response_model=RevenueTrend)
+async def get_revenue_trend(symbol: str):
+    """Get 10-year revenue trend with CAGR calculation for charting"""
+    try:
+        # Create database session
+        db = SessionLocal()
+        
+        try:
+            # Query for the last 10 years of annual revenue data
+            # Use fiscal_year for annual data, ordered by fiscal_year descending
+            records = db.query(CompanyFact).filter(
+                CompanyFact.symbol == symbol.upper(),
+                CompanyFact.revenue.isnot(None),
+                CompanyFact.revenue > 0
+            ).order_by(CompanyFact.fiscal_year.desc()).all()
+            
+            # Deduplicate by fiscal_year, keeping the highest revenue for each year
+            unique_records = {}
+            for record in records:
+                if record.fiscal_year is not None:
+                    if record.fiscal_year not in unique_records or record.revenue > unique_records[record.fiscal_year].revenue:
+                        unique_records[record.fiscal_year] = record
+            
+            # Convert back to list and sort by fiscal_year ascending for CAGR calculation
+            records = sorted(unique_records.values(), key=lambda x: x.fiscal_year if x.fiscal_year is not None else 0)
+            
+            # Limit to last 10 years
+            if len(records) > 10:
+                records = records[-10:]
+            
+            if not records:
+                return RevenueTrend(
+                    symbol=symbol.upper(),
+                    years=[],
+                    revenue=[],
+                    cagr=0.0,
+                    message="No revenue data found for this symbol"
+                )
+            
+            # Sort by fiscal_year ascending for CAGR calculation
+            records.sort(key=lambda x: x.fiscal_year)
+            
+            # Extract years and revenue data
+            years = [str(record.fiscal_year) for record in records]
+            revenue = [float(record.revenue) for record in records]
+            
+            # Calculate CAGR: (End Value / Start Value)^(1/n) - 1
+            if len(revenue) >= 2:
+                start_revenue = revenue[0]
+                end_revenue = revenue[-1]
+                num_years = len(revenue) - 1
+                
+                if start_revenue > 0 and num_years > 0:
+                    cagr = (end_revenue / start_revenue) ** (1 / num_years) - 1
+                else:
+                    cagr = 0.0
+            else:
+                cagr = 0.0
+            
+            return RevenueTrend(
+                symbol=symbol.upper(),
+                years=years,
+                revenue=revenue,
+                cagr=cagr,
+                message=f"Retrieved {len(records)} years of revenue data"
+            )
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return RevenueTrend(
+            symbol=symbol.upper(),
+            years=[],
+            revenue=[],
+            cagr=0.0,
+            message=f"Error retrieving revenue trend: {str(e)}"
+        )
 
 @app.post("/ingest/macro/{series_id}")
 async def ingest_macro_data(series_id: str):
