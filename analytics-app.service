@@ -1,0 +1,17 @@
+[Unit]
+Description=Analytics App FastAPI Server
+After=network.target
+
+[Service]
+Type=simple
+User=abdulghaffar
+WorkingDirectory=/Users/abdulghaffar/Documents/Cursor Projects/Analytics App/backend
+Environment=PATH=/Users/abdulghaffar/Documents/Cursor Projects/Analytics App/backend/venv/bin
+ExecStart=/Users/abdulghaffar/Documents/Cursor Projects/Analytics App/backend/venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 
