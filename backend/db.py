@@ -23,9 +23,11 @@ class CompanyFact(Base):
     revenue = Column(Float)
     cost = Column(Float)
     ebitda = Column(Float)
+    eps = Column(Float)  # Earnings per share
+    price = Column(Float)  # Stock price
     
     def __repr__(self):
-        return f"<CompanyFact(symbol='{self.symbol}', date='{self.date}', fiscal_year={self.fiscal_year}, revenue={self.revenue}, cost={self.cost}, ebitda={self.ebitda})>"
+        return f"<CompanyFact(symbol='{self.symbol}', date='{self.date}', fiscal_year={self.fiscal_year}, revenue={self.revenue}, cost={self.cost}, ebitda={self.ebitda}, eps={self.eps}, price={self.price})>"
 
 class MacroFact(Base):
     """Macroeconomic facts from FRED"""
