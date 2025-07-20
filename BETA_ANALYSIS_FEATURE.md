@@ -93,6 +93,56 @@ Where:
 }
 ```
 
+### GET `/beta/{symbol}` (Frontend-Friendly)
+
+**URL Pattern**: `/beta/{symbol}?kpi={kpi}&macro={macro}&years={years}`
+
+**Parameters**:
+- `symbol` (path): Company stock symbol (e.g., MSFT, AAPL, GOOGL)
+- `kpi` (query): Key Performance Indicator (revenue, eps, ebitda, price)
+- `macro` (query): Macroeconomic variable (EFFR, CPIAUCSL, UNRATE, GDP)
+- `years` (query): Number of years (3-20, default: 10)
+
+**Example Request**:
+```
+GET /beta/MSFT?kpi=revenue&macro=EFFR&years=10
+```
+
+**Example Response**:
+```json
+{
+  "symbol": "MSFT",
+  "kpi": "revenue",
+  "macro_variable": "EFFR",
+  "years": 10,
+  "beta": 102527670250.89568,
+  "r2": 0.09886894919175204,
+  "p_value": 0.37624028499504447,
+  "plot_url": "/static/beta_revenue_EFFR.png",
+  "n_observations": 10,
+  "interpretation": {
+    "significance": "Not significant",
+    "direction": "Positive",
+    "strength": "Strong",
+    "explained_variance": "Low",
+    "insights": [
+      "No significant relationship found between the variables",
+      "Low explanatory power: 9.9% of KPI variance explained by macro variable"
+    ]
+  },
+  "y_mean": 145785700000.0,
+  "x_mean": 5.068529411764706,
+  "y_std": 84612868010.13188,
+  "x_std": 0.2594927844667584
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Invalid KPI or macro variable
+- `404 Not Found`: No data available for symbol
+- `422 Unprocessable Entity`: Invalid years parameter
+- `500 Internal Server Error`: Server error during calculation
+
 ## 📊 Available KPIs and Macro Variables
 
 ### Company KPIs
