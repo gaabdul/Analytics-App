@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Form, Query
-from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException
+from pydantic import BaseModel, Field
 import pandas as pd
 import requests
 import yfinance
@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from db import CompanyFact, MacroFact, SessionLocal, create_tables
 from datetime import datetime
 from sqlalchemy import func
-from services.datahub import get_company_macro
+from services.datahub import get_company_macro, get_available_kpis, get_available_macro_series
 from services.analysis import calc_beta, calc_multiple_betas, interpret_beta
 from typing import List, Optional
 
@@ -141,6 +141,52 @@ class BetaAnalysisResponse(BaseModel):
     x_mean: float
     y_std: float
     x_std: float
+
+class BetaGetResponse(BaseModel):
+    """Response model for GET /beta/{symbol} endpoint"""
+    symbol: str = Field(..., description="Company stock symbol")
+    kpi: str = Field(..., description="Key Performance Indicator analyzed")
+    macro_variable: str = Field(..., description="Macroeconomic variable analyzed")
+    years: int = Field(..., description="Number of years of data used")
+    beta: float = Field(..., description="Regression coefficient (sensitivity measure)")
+    r2: float = Field(..., description="R-squared value (explanatory power)")
+    p_value: float = Field(..., description="Statistical significance p-value")
+    plot_url: str = Field(..., description="URL to generated regression plot")
+    n_observations: int = Field(..., description="Number of data points used in analysis")
+    interpretation: dict = Field(..., description="Automated interpretation of results")
+    y_mean: float = Field(..., description="Mean of the KPI values")
+    x_mean: float = Field(..., description="Mean of the macro variable values")
+    y_std: float = Field(..., description="Standard deviation of KPI values")
+    x_std: float = Field(..., description="Standard deviation of macro variable values")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "symbol": "MSFT",
+                "kpi": "revenue",
+                "macro_variable": "EFFR",
+                "years": 10,
+                "beta": 102527670250.89568,
+                "r2": 0.09886894919175204,
+                "p_value": 0.37624028499504447,
+                "plot_url": "/static/beta_revenue_EFFR.png",
+                "n_observations": 10,
+                "interpretation": {
+                    "significance": "Not significant",
+                    "direction": "Positive",
+                    "strength": "Strong",
+                    "explained_variance": "Low",
+                    "insights": [
+                        "No significant relationship found between the variables",
+                        "Low explanatory power: 9.9% of KPI variance explained by macro variable"
+                    ]
+                },
+                "y_mean": 145785700000.0,
+                "x_mean": 5.068529411764706,
+                "y_std": 84612868010.13188,
+                "x_std": 0.2594927844667584
+            }
+        }
 
 @app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
@@ -988,6 +1034,115 @@ async def calculate_beta_analysis(request: BetaAnalysisRequest):
             "y_std": 0.0,
             "x_std": 0.0
         }
+
+@app.get("/beta/{symbol}", response_model=BetaGetResponse)
+async def get_beta_analysis(
+    symbol: str,
+    kpi: str = Query(..., description="Key Performance Indicator to analyze", example="revenue"),
+    macro: str = Query(..., description="Macroeconomic variable to analyze", example="EFFR"),
+    years: int = Query(10, description="Number of years of data to use", ge=3, le=20, example=10)
+):
+    """
+    Calculate the sensitivity (beta) of a KPI to a macroeconomic variable using GET request.
+    
+    This endpoint provides a user-friendly way to analyze how sensitive a company's KPI
+    is to changes in macroeconomic indicators through a simple GET request.
+    
+    **Parameters:**
+    - **symbol**: Company stock symbol (e.g., MSFT, AAPL, GOOGL)
+    - **kpi**: Key Performance Indicator to analyze (revenue, eps, ebitda, price)
+    - **macro**: Macroeconomic variable to analyze (EFFR, CPIAUCSL, UNRATE, GDP)
+    - **years**: Number of years of data to use (3-20, default: 10)
+    
+    **Returns:**
+    - Beta coefficient (sensitivity measure)
+    - R-squared value (explanatory power)
+    - P-value (statistical significance)
+    - Plot URL for visualization
+    - Automated interpretation and insights
+    
+    **Example:**
+    ```
+    GET /beta/MSFT?kpi=revenue&macro=EFFR&years=10
+    ```
+    
+    **Available KPIs:** revenue, eps, ebitda, price
+    **Available Macro Variables:** EFFR, CPIAUCSL, UNRATE, GDP
+    """
+    try:
+        # Validate symbol
+        symbol = symbol.upper().strip()
+        if not symbol or len(symbol) > 10:
+            raise HTTPException(status_code=400, detail="Invalid symbol format")
+        
+        # Validate KPI
+        available_kpis = get_available_kpis()
+        if kpi.lower() not in [k.lower() for k in available_kpis]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid KPI '{kpi}'. Available KPIs: {available_kpis}"
+            )
+        
+        # Validate macro variable
+        available_macros = get_available_macro_series()
+        if macro.upper() not in available_macros:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid macro variable '{macro}'. Available variables: {available_macros}"
+            )
+        
+        # Validate years
+        if years < 3 or years > 20:
+            raise HTTPException(
+                status_code=400, 
+                detail="Years must be between 3 and 20"
+            )
+        
+        # Get merged data using DataHub service
+        df = get_company_macro(
+            symbol=symbol,
+            kpis=[kpi],
+            macro_ids=[macro.upper()],
+            years=years
+        )
+        
+        if df.empty:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No data available for {symbol} with the specified parameters"
+            )
+        
+        # Calculate beta using Analysis service
+        result = calc_beta(df, kpi, macro.upper())
+        
+        # Get interpretation
+        interpretation = interpret_beta(result['beta'], result['p_value'], result['r2'])
+        
+        return BetaGetResponse(
+            symbol=symbol,
+            kpi=kpi,
+            macro_variable=macro.upper(),
+            years=years,
+            beta=result['beta'],
+            r2=result['r2'],
+            p_value=result['p_value'],
+            plot_url=result['plot_url'],
+            n_observations=result['n_observations'],
+            interpretation=interpretation,
+            y_mean=result['y_mean'],
+            x_mean=result['x_mean'],
+            y_std=result['y_std'],
+            x_std=result['x_std']
+        )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error calculating beta analysis: {str(e)}"
+        )
 
 @app.get("/test-endpoint")
 async def test_endpoint():
