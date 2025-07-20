@@ -10,6 +10,9 @@ from fastapi.responses import FileResponse
 from db import CompanyFact, MacroFact, SessionLocal, create_tables
 from datetime import datetime
 from sqlalchemy import func
+from services.datahub import get_company_macro
+from services.analysis import calc_beta, calc_multiple_betas, interpret_beta
+from typing import List, Optional
 
 load_dotenv(find_dotenv())
 
@@ -117,6 +120,27 @@ class InterestShockRequest(BaseModel):
 class ScenarioResult(BaseModel):
     scenario: str
     net_profit: float
+
+class BetaAnalysisRequest(BaseModel):
+    symbol: str
+    kpi: str
+    macro_variable: str
+    years: int = 10
+
+class BetaAnalysisResponse(BaseModel):
+    symbol: str
+    kpi: str
+    macro_variable: str
+    beta: float
+    r2: float
+    p_value: float
+    plot_url: str
+    n_observations: int
+    interpretation: dict
+    y_mean: float
+    x_mean: float
+    y_std: float
+    x_std: float
 
 @app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
@@ -883,6 +907,87 @@ async def get_scenario_matrix(symbol: str):
         return [
             ScenarioResult(scenario="error", net_profit=0)
         ]
+
+@app.post("/analysis/beta", response_model=BetaAnalysisResponse)
+async def calculate_beta_analysis(request: BetaAnalysisRequest):
+    """
+    Calculate the sensitivity (beta) of a KPI to a macroeconomic variable.
+    
+    This endpoint performs linear regression analysis to determine how sensitive
+    a company's KPI is to changes in macroeconomic indicators.
+    
+    Args:
+        request: BetaAnalysisRequest containing symbol, kpi, macro_variable, and years
+    
+    Returns:
+        BetaAnalysisResponse with regression results, plot URL, and interpretation
+    """
+    try:
+        # Get merged data using DataHub service
+        df = get_company_macro(
+            symbol=request.symbol.upper(),
+            kpis=[request.kpi],
+            macro_ids=[request.macro_variable],
+            years=request.years
+        )
+        
+        if df.empty:
+            return {
+                "symbol": request.symbol.upper(),
+                "kpi": request.kpi,
+                "macro_variable": request.macro_variable,
+                "error": "No data available for the specified parameters",
+                "beta": 0.0,
+                "r2": 0.0,
+                "p_value": 1.0,
+                "plot_url": "",
+                "n_observations": 0,
+                "interpretation": {"error": "No data available"},
+                "y_mean": 0.0,
+                "x_mean": 0.0,
+                "y_std": 0.0,
+                "x_std": 0.0
+            }
+        
+        # Calculate beta using Analysis service
+        result = calc_beta(df, request.kpi, request.macro_variable)
+        
+        # Get interpretation
+        interpretation = interpret_beta(result['beta'], result['p_value'], result['r2'])
+        
+        return BetaAnalysisResponse(
+            symbol=request.symbol.upper(),
+            kpi=request.kpi,
+            macro_variable=request.macro_variable,
+            beta=result['beta'],
+            r2=result['r2'],
+            p_value=result['p_value'],
+            plot_url=result['plot_url'],
+            n_observations=result['n_observations'],
+            interpretation=interpretation,
+            y_mean=result['y_mean'],
+            x_mean=result['x_mean'],
+            y_std=result['y_std'],
+            x_std=result['x_std']
+        )
+        
+    except Exception as e:
+        return {
+            "symbol": request.symbol.upper(),
+            "kpi": request.kpi,
+            "macro_variable": request.macro_variable,
+            "error": f"Error calculating beta analysis: {str(e)}",
+            "beta": 0.0,
+            "r2": 0.0,
+            "p_value": 1.0,
+            "plot_url": "",
+            "n_observations": 0,
+            "interpretation": {"error": str(e)},
+            "y_mean": 0.0,
+            "x_mean": 0.0,
+            "y_std": 0.0,
+            "x_std": 0.0
+        }
 
 @app.get("/test-endpoint")
 async def test_endpoint():
